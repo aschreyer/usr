@@ -6,3 +6,4 @@ dependencies:
   - rdkit
   - numpy
   - scipy
+  - rd-usr
