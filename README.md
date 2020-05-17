@@ -1,6 +1,4 @@
 # USR: Ultrafast Shape Recognition
-- - - 
-
 
 Project description
 
