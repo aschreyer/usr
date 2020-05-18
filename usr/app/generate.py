@@ -12,7 +12,7 @@ from usr.moments import get_usr_moments_df
 
 def generate_usr_moments(
         input_path: Path, output_path: Path, *,
-        output_format: io.MomentOutputFormat = io.MomentOutputFormat.CSV,
+        output_format: io.MomentFormat = io.MomentFormat.CSV,
         explicit_h: bool = False, sd_title_tag: str = "_Name",
 ) -> None:
     """
@@ -41,9 +41,9 @@ def generate_usr_moments(
         input_path, sanitize=True, suppress_hydrogens=explicit_h is False
     )
 
-    # create Pandas dataframe containing all the moments
+    # create Pandas data frame containing all USR moments
     df = get_usr_moments_df(mols, explicit_h=explicit_h, sd_title_tag=sd_title_tag)
 
-    if output_format == io.MomentOutputFormat.CSV:
+    if output_format == io.MomentFormat.CSV:
         df.to_csv(output_path)
         logger.info("wrote USR moments to {}.", output_path)

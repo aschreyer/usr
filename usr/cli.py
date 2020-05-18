@@ -7,7 +7,7 @@ from loguru import logger
 
 from usr import __version__
 from usr import io
-from usr.app import generate_usr_moments
+from usr.app import generate_usr_moments, calc_usr_sim_scores
 
 
 app = typer.Typer(
@@ -17,7 +17,9 @@ app = typer.Typer(
 )
 
 
-def version_callback(value: bool):
+def version_callback(value: bool) -> None:
+    """
+    """
     if value:
         typer.echo(f"USR {__version__}")
         raise typer.Exit()
@@ -43,13 +45,15 @@ def main(
     subcommands.
     """
     logger.configure(
-        handlers=[dict(sink=sys.stderr, level=log_level)]
+        handlers=[
+            dict(sink=sys.stderr, level=log_level)
+        ]
     )
 
 
 @app.command(no_args_is_help=True)
 def generate(
-        input_path: Path = typer.Option(
+    input_path: Path = typer.Option(
             ..., "--in",
             exists=True, readable=True,
             help="Chemical structure file containing molecules for which USR moments "
@@ -60,8 +64,8 @@ def generate(
             writable=True,
             help="Path to which the USR moments should be written."
         ),
-        output_format: io.MomentOutputFormat = typer.Option(
-            io.MomentOutputFormat.CSV, "--output-format",
+        output_format: io.MomentFormat = typer.Option(
+            io.MomentFormat.CSV, "--output-format",
             show_default=True,
             help="Format in which the USR moments should be written."
         ),
@@ -84,5 +88,27 @@ def generate(
 
 
 @app.command()
-def search():
-    pass
+def search(
+        input_path: Path = typer.Option(
+            ..., "--in",
+            exists=True, readable=True,
+            help="Chemical structure file containing molecules for which USR moments "
+                 "should be generated. Only the SDF format is supported (.sdf)."
+        ),
+        output_path: Path = typer.Option(
+            ..., "--out",
+            writable=True,
+            help="Path to which the USR moments should be written."
+        ),
+        input_format: io.MomentFormat = typer.Option(
+            io.MomentFormat.CSV, "--output-format",
+            show_default=True,
+            help="Format in which the USR moments should be written."
+        )
+) -> None:
+    """
+    Screen a USR moment database with a reference query.
+
+
+    """
+    calc_usr_sim_scores(input_path, output_path, input_format=input_format)

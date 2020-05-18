@@ -10,9 +10,9 @@ from rdkit import Chem
 from loguru import logger
 
 
-class MomentOutputFormat(str, Enum):
+class MomentFormat(str, Enum):
     """
-
+    Supported input/output file formats for USR moments.
     """
     CSV = "CSV"
 

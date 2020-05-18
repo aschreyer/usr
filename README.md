@@ -9,13 +9,18 @@ compound databases for similar molecular shapes. _J. Comput. Chem._, 28: 1711-17
 
 ## Installation
 
-The **USR** package requires [RDKit](rdkit.org), which can only be installed directly 
-through the conda Python package manager.
+The **USR** package requires [RDKit](http://www.rdkit.org), which can only be installed 
+directly through the conda Python package manager. The **USR** Python package can 
+directly be installed from PyPI with `pip` using `pip install rd-usr`, which will 
+install the latest stable release. For other versions, the version can be 
+explicitly specified using the normal `pip` syntax, e.g. `pip install rd-usr==1.0`. 
 
-**USR** can simply be installed with `pip` from PyPI using `pip install rd-usr`.
+The recommended solution is to create a separate conda environment with all dependencies
+using the provided `environment.yml` file:
 
-which will install the latest stable release. For other versions, the version can be 
-explicitly specified using the  normal pip syntax, e.g. `pip install rd-usr==1.0`. 
+    $ conda create -f environment.yml
+
+Which will install RDKit and its dependencies.
 
 ### Developer installation
 
@@ -26,7 +31,7 @@ For developers who directly work on the source code, it is recommended to instal
 
 and then install the repo in `pip` development mode:
 
-    $ pip install  .[tests]
+    $ pip install -e '.[tests]'
 
 This step will also install all the dependencies required for running the test suite.
 
@@ -34,3 +39,6 @@ This step will also install all the dependencies required for running the test s
 
 **USR** comes with a comprehensive test suite that can be started by calling `$ py.test` 
 in the source directory.
+
+## Usage
+
