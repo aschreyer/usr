@@ -1,6 +1,7 @@
 # USR: Ultrafast Shape Recognition
 
 [![CI](https://github.com/aschreyer/usr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aschreyer/usr/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/rd-usr)](https://pypi.org/project/rd-usr/)
 ![Python 3.12 and later](https://img.shields.io/badge/python-3.12%2B-3776ab)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
