@@ -81,7 +81,7 @@ uvx pre-commit run --all-files
 USR is a library. It logs through loguru and calls `logger.disable("usr")` on
 import.
 
-- **Never add a sink in `src/`** except in `cli/main.py`, which replaces
+- **Never add a sink in `src/`** except in `cli.py`, which replaces
   loguru's handler at `WARNING`, or `DEBUG` with `-v`.
 - **Pass values as arguments**: `logger.warning("skipped record {}", number)`.
 - **The component that learns a fact logs it**, as `read_molecules` logs a
@@ -92,8 +92,8 @@ import.
 - Results go to stdout, or to `--out`. Errors, warnings and logs go to stderr.
 - Exit codes: 0 for success, 1 for a fault, 2 for a caller's mistake.
 - A command parses options, calls the library and writes the result; logic
-  belongs in the library. Shared options live in `cli/options.py` as
-  `Annotated` assignments, since Typer cannot read a `type` alias.
+  belongs in the library. Options both commands take are `Annotated`
+  assignments in `cli.py`, since Typer cannot read a `type` alias.
 
 ## Tests
 
@@ -119,7 +119,7 @@ import.
 
 ```
 src/usr/          # The package: moments, similarity, search, io
-src/usr/cli/      # The `usr` command: main (app), generate, search, options
+src/usr/cli.py    # The `usr` command: generate and search
 tests/unit/       # Unit tests, mirroring src/usr/
 tests/data/       # SD files the tests read
 pyproject.toml    # Package, ruff, mypy, pytest and coverage configuration
