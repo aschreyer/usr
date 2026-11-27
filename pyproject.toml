@@ -36,9 +36,9 @@ dependencies = [
     "loguru>=0.7.0",
     "numpy>=1.26.0",
     "rdkit>=2024.3.1",
-    # scipy.special.cbrt, whose rounding the published moments carry. np.cbrt
-    # differs from it in the last bit for about one value in ten.
-    "scipy>=1.13.0",
+    # scipy.special.cbrt, whose rounding the moments carry: np.cbrt differs in the
+    # last bit. 1.18 is the first scipy whose skew rounds as calc_skewness does.
+    "scipy>=1.18.0",
     # Typer 0.27 vendors Click, so nothing here imports ``click``.
     "typer>=0.27.0",
 ]

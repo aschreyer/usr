@@ -57,11 +57,11 @@ def search_database(
     to an SD query, and should match the setting the database was generated with.
     """
     with main.reporting():
+        database = io.read_moment_table(database_path)
         if query_path.suffix.lower() == ".csv":
             query = io.read_moment_table(query_path)
         else:
             mols = io.read_molecules(query_path, remove_hs=not explicit_h)
             query = moments.get_usr_moment_table(mols, explicit_h=explicit_h)
-        database = io.read_moment_table(database_path)
         hits = search.screen(query, database, top=top)
         io.write_hits(hits, output_path or sys.stdout)

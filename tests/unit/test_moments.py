@@ -236,6 +236,25 @@ def test_a_molecule_without_conformers_is_skipped_with_a_warning(
     assert caplog_loguru == ["skipped molecule 1 (ethanol): it has no conformers"]
 
 
+def test_a_molecule_without_atoms_is_skipped_with_a_warning(
+    aspirin_conformers: Chem.Mol, caplog_loguru: list[str]
+) -> None:
+    empty = Chem.RWMol()
+    empty.AddConformer(Chem.Conformer(0))
+
+    table = get_usr_moment_table([empty, aspirin_conformers])
+
+    assert table.titles == ("aspirin",) * 3
+    assert caplog_loguru == ["skipped molecule 1 (Mol-1): it has no atoms"]
+
+
+def test_coordinates_of_zero_atoms_are_refused() -> None:
+    with pytest.raises(ValueError, match="zero atoms") as caught:
+        calc_usr_moments_from_coords(np.empty((0, 3)))
+
+    assert str(caught.value) == "cannot calculate USR moments of zero atoms"
+
+
 def test_no_molecules_give_an_empty_table() -> None:
     table = get_usr_moment_table([])
 

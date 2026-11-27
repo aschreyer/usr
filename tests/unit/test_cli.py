@@ -135,6 +135,17 @@ def test_generate_refuses_a_missing_file(tmp_path: Path) -> None:
     assert "does not exist" in result.stderr
 
 
+def test_generate_refuses_an_output_in_a_missing_directory(
+    drugs_sdf: Path, tmp_path: Path
+) -> None:
+    path = tmp_path / "missing" / "drugs.csv"
+
+    result = runner.invoke(app, ["generate", str(drugs_sdf), "-o", str(path)])
+
+    assert result.exit_code == 2
+    assert result.stderr == f"error: [Errno 2] No such file or directory: '{path}'\n"
+
+
 def test_verbose_logs_progress_on_stderr(drugs_sdf: Path) -> None:
     result = runner.invoke(app, ["-v", "generate", str(drugs_sdf)])
 

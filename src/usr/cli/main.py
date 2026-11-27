@@ -11,10 +11,10 @@ The module is named ``main``, not ``app``, because ``app`` is the Typer instance
 :mod:`usr.cli` re-exports.
 """
 
-import io
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from io import StringIO
 from typing import Annotated
 
 import typer
@@ -79,7 +79,7 @@ def main(
 def reporting() -> Iterator[None]:
     """Map the library's exceptions onto exit codes.
 
-    Wraps a command body. Two cases are handled; anything else is a fault and
+    Wraps a command body. Three cases are handled; anything else is a fault and
     propagates with its traceback.
 
     ``ValueError``
@@ -87,6 +87,9 @@ def reporting() -> Iterator[None]:
         exit 2.
     ``BrokenPipeError``
         The reader closed the pipe, as ``| head`` does. Exit 0.
+    ``OSError``
+        A file cannot be read or written, such as ``--out`` in a missing directory.
+        One line on stderr, exit 2.
 
     Yields
     ------
@@ -101,5 +104,8 @@ def reporting() -> Iterator[None]:
     except BrokenPipeError:
         # Point stdout at a sink, so the flush at shutdown cannot raise and override
         # the exit code.
-        sys.stdout = io.StringIO()
+        sys.stdout = StringIO()
         raise typer.Exit(0) from None
+    except OSError as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(2) from error

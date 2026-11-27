@@ -63,15 +63,29 @@ def test_an_unreadable_record_is_skipped_with_a_warning(
 
 
 @pytest.mark.parametrize("name", ["mols.mol2", "mols.gz", "mols"])
-def test_a_file_that_is_not_an_sd_file_is_refused_before_reading(name: str) -> None:
-    """The file does not exist, so only the name check can raise."""
+def test_a_file_that_is_not_an_sd_file_is_refused_before_reading(
+    name: str, tmp_path: Path, drugs_sdf: Path
+) -> None:
+    """The file holds SD records, so only the name check can raise."""
+    path = tmp_path / name
+    path.write_bytes(drugs_sdf.read_bytes())
+
     with pytest.raises(ValueError, match="cannot read molecules") as caught:
-        io.read_molecules(name)
+        io.read_molecules(path)
 
     assert str(caught.value) == (
         f"cannot read molecules from {name}: only SD files are supported, "
         "named *.sdf or *.sdf.gz"
     )
+
+
+def test_a_missing_file_is_refused_before_reading(tmp_path: Path) -> None:
+    path = tmp_path / "missing.sdf"
+
+    with pytest.raises(ValueError, match="cannot read molecules") as caught:
+        io.read_molecules(path)
+
+    assert str(caught.value) == f"cannot read molecules from {path}: no such file"
 
 
 def test_a_moment_table_survives_a_round_trip_exactly(

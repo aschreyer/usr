@@ -89,10 +89,12 @@ def read_molecules(path: Path | str, *, remove_hs: bool = True) -> Iterator[Chem
     Raises
     ------
     ValueError
-        If the name of ``path`` does not end in ``.sdf`` or ``.sdf.gz``. Raised by this
-        call, before any reading.
+        If ``path`` is not a file, or its name does not end in ``.sdf`` or
+        ``.sdf.gz``. Raised by this call, before any reading.
     """
     path = Path(path)
+    if not path.is_file():
+        raise ValueError(f"cannot read molecules from {path}: no such file")
     if not is_sdf(path):
         raise ValueError(
             f"cannot read molecules from {path.name}: only SD files are supported, "

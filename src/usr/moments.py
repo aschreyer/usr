@@ -129,7 +129,8 @@ def calc_skewness(values: FloatArray) -> float:
 
     The skewness is the third central moment over the 1.5th power of the second. The
     moments are population moments, without a bias correction. This is the
-    default of ``scipy.stats.skew``, and the result agrees with it bit for bit.
+    default of ``scipy.stats.skew``, and from scipy 1.18 the result agrees with it
+    bit for bit.
 
     Parameters
     ----------
@@ -177,6 +178,11 @@ def calc_usr_moments_from_coords(coords: FloatArray) -> FloatArray:
         that order. A skewness that is undefined, as for fewer than three distinct
         distances, gives NaN.
 
+    Raises
+    ------
+    ValueError
+        If ``coords`` holds no atoms.
+
     Examples
     --------
     Four atoms on a line, one unit apart:
@@ -189,6 +195,9 @@ def calc_usr_moments_from_coords(coords: FloatArray) -> FloatArray:
     >>> print(moments[:3])
     [1.  0.5 0. ]
     """
+    if not len(coords):
+        raise ValueError("cannot calculate USR moments of zero atoms")
+
     ctd = coords.mean(axis=0)
     dist_ctd = calc_dist_to_point(coords, ctd)
 
@@ -265,8 +274,8 @@ def get_usr_moment_table(
     -------
     MomentTable
         One row per conformer. A molecule whose title is missing or empty is named
-        ``Mol-<n>``, where ``n`` counts the molecules from 1. A molecule without
-        conformers adds no row, and a warning names it.
+        ``Mol-<n>``, where ``n`` counts the molecules given, from 1. A molecule without
+        atoms or without conformers adds no row, and a warning names it.
 
     Examples
     --------
@@ -284,6 +293,9 @@ def get_usr_moment_table(
     for number, mol in enumerate(mols, 1):
         title = mol.GetProp(title_tag) if mol.HasProp(title_tag) else ""
         title = title or f"Mol-{number}"
+        if not mol.GetNumAtoms():
+            logger.warning("skipped molecule {} ({}): it has no atoms", number, title)
+            continue
         moments = get_usr_moments(mol, explicit_h=explicit_h)
         if not len(moments):
             logger.warning(
