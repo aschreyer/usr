@@ -25,7 +25,6 @@ import numpy as np
 import numpy.typing as npt
 from loguru import logger
 from rdkit import Chem
-from scipy.special import cbrt
 
 
 type FloatArray = npt.NDArray[np.float64]
@@ -128,9 +127,8 @@ def calc_skewness(values: FloatArray) -> float:
     """Return the skewness of ``values``.
 
     The skewness is the third central moment over the 1.5th power of the second. The
-    moments are population moments, without a bias correction. This is the
-    default of ``scipy.stats.skew``, and from scipy 1.18 the result agrees with it
-    bit for bit.
+    moments are population moments, without a bias correction, as in the default of
+    ``scipy.stats.skew``.
 
     Parameters
     ----------
@@ -155,7 +153,7 @@ def calc_skewness(values: FloatArray) -> float:
     second = np.mean(deviations**2)
     third = np.mean(deviations**3)
     # A variance at the rounding error of the mean is zero, and the skewness is
-    # undefined. The threshold is the one scipy.stats.skew applies.
+    # undefined. scipy.stats.skew applies the same threshold.
     if second <= (np.finfo(np.float64).eps * mean) ** 2:
         return float("nan")
 
@@ -212,7 +210,7 @@ def calc_usr_moments_from_coords(coords: FloatArray) -> FloatArray:
     moments = [
         moment
         for dist in (dist_ctd, dist_cst, dist_fct, dist_ftf)
-        for moment in (dist.mean(), dist.std(), cbrt(calc_skewness(dist)))
+        for moment in (dist.mean(), dist.std(), np.cbrt(calc_skewness(dist)))
     ]
 
     return np.array(moments, dtype=np.float64)

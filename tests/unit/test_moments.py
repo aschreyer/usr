@@ -1,13 +1,11 @@
 """Tests for the USR moments of coordinates, molecules and tables."""
 
 import math
-import warnings
 
 import numpy as np
 import pytest
 from rdkit import Chem
 from rdkit.Chem import rdDistGeom
-from scipy.stats import skew
 
 from usr.moments import (
     NUM_MOMENTS,
@@ -125,24 +123,47 @@ def test_moments_are_invariant_under_rotation_and_translation(
     )
 
 
-def test_the_skewness_agrees_bit_for_bit_with_scipy() -> None:
-    """Pin the skewness to ``scipy.stats.skew``, which it replaced.
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([0.0, 0.0, 3.0], 1 / math.sqrt(2)),
+        ([0.0, 1.0, 1.0, 1.0], -2 / math.sqrt(3)),
+        ([1.0, 2.0, 3.0], 0.0),
+    ],
+)
+def test_the_skewness_has_the_hand_derived_value(
+    values: list[float], expected: float
+) -> None:
+    """Derived by hand from the population moments.
 
-    A regression pin: two implementations of one formula, so agreement shows equal
-    rounding, not truth.
+    0, 0, 3: mean 1, deviations -1, -1, 2, second moment 2, third moment 2, so
+    2 / 2^1.5 = 1/sqrt(2). 0, 1, 1, 1: mean 3/4, second moment 3/16, third moment
+    -3/32, so -2/sqrt(3). 1, 2, 3 is symmetric, so 0.
+    """
+    assert calc_skewness(np.array(values)) == pytest.approx(expected, abs=1e-15)
+
+
+@pytest.mark.parametrize("values", [[2.5] * 5, [0.0]])
+def test_the_skewness_of_equal_values_is_undefined(values: list[float]) -> None:
+    """Derived by hand: the variance is zero, so the skewness is 0/0."""
+    assert math.isnan(calc_skewness(np.array(values)))
+
+
+def test_the_skewness_agrees_with_the_formula() -> None:
+    """Checked against a separate computation: the moment sums in plain Python.
+
+    The samples are seeded. Two summation orders round differently, so the
+    comparison has a tolerance.
     """
     rng = np.random.default_rng(3)
-    samples = [rng.gamma(2.0, size=size) * 5 for size in (3, 12, 100, 1000)]
-    samples += [np.full(5, 2.5), np.array([0.0])]
+    for size in (3, 12, 100, 1000):
+        sample = (rng.gamma(2.0, size=size) * 5).tolist()
+        mean = sum(sample) / size
+        second = sum((value - mean) ** 2 for value in sample) / size
+        third = sum((value - mean) ** 3 for value in sample) / size
 
-    for sample in samples:
-        with warnings.catch_warnings():
-            # scipy warns of precision loss on equal values; the result is still NaN.
-            warnings.simplefilter("ignore", RuntimeWarning)
-            expected = float(skew(sample))
-
-        assert calc_skewness(sample) == expected or (
-            math.isnan(calc_skewness(sample)) and math.isnan(expected)
+        assert calc_skewness(np.array(sample)) == pytest.approx(
+            third / second**1.5, rel=1e-12
         )
 
 

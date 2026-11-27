@@ -38,10 +38,10 @@ uvx pre-commit run --all-files
   Ballester and Richards (2007), doi:10.1002/jcc.20681. The moments are the
   mean, the population standard deviation and the cube root of the biased
   skewness of the distances to `ctd`, `cst`, `fct` and `ftf`, in that order.
-- **The moments are pinned bit for bit.** `scipy.special.cbrt` stays because
-  `np.cbrt` rounds differently in the last bit. `calc_skewness` matches
-  `scipy.stats.skew` exactly from scipy 1.18, the floor, and a test holds it to
-  that.
+- **Moments match the reference to within floating-point tolerance.** Tests
+  compare them with a tolerance (`pytest.approx` or `assert_allclose`), never
+  bit for bit: a change of summation order or of cube-root library moves the
+  last bit.
 
 ## Code style
 
