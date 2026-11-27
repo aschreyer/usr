@@ -11,7 +11,7 @@ distributions of its atomic distances to four reference points:
 Each distribution contributes its mean, its standard deviation and the cube root of its
 skewness, in that order, so a conformer has :data:`NUM_MOMENTS` moments.
 
-:func:`calc_usr_moments_from_coords` computes the moments of one coordinate array.
+:func:`calc_usr_moments` computes the moments of an array of conformer coordinates.
 :func:`get_usr_moments` computes them for every conformer of an RDKit molecule, and
 :func:`get_usr_moment_table` for many molecules, as a :class:`MomentTable` whose rows
 name their molecule and conformer. :mod:`usr.io` reads and writes the table, and
@@ -90,130 +90,82 @@ class MomentTable:
         return len(self.titles)
 
 
-def calc_dist_to_point(coords: FloatArray, point: FloatArray) -> FloatArray:
-    """Return the Euclidean distance of each coordinate to ``point``.
+def calc_usr_moments(coords: FloatArray) -> FloatArray:
+    """Return the USR moments of each conformer in a coordinate array.
+
+    The calculation has three steps. The reference points come first: ``ctd`` from
+    the coordinates, ``cst`` and ``fct`` from the distances to ``ctd``, and ``ftf``
+    from the distances to ``fct``. Next, the distances of every atom to all four
+    points. Last, the mean, standard deviation and cube root of the skewness of each
+    distribution of distances. Where two atoms are equally close or far, the reference
+    point is the one with the lower index.
 
     Parameters
     ----------
     coords : FloatArray
-        Coordinates in the shape ``(atoms, dimensions)``.
-    point : FloatArray
-        One coordinate with the same number of dimensions.
+        Coordinates in the shape ``(conformers, atoms, 3)``.
 
     Returns
     -------
     FloatArray
-        The distances, in the shape ``(atoms,)``.
-
-    Examples
-    --------
-    >>> coords = np.array(
-    ...     [
-    ...         [8.38667524, 1.13009736, -0.0745602],
-    ...         [7.82163887, 1.77554511, -1.323699],
-    ...         [6.38320013, 1.76070059, -1.20237391],
-    ...     ]
-    ... )
-    >>> for dist in calc_dist_to_point(coords, np.zeros(3)):
-    ...     print(np.round(dist, 3))
-    8.463
-    8.129
-    6.73
-    """
-    return np.sqrt(((coords - point) ** 2).sum(axis=1))
-
-
-def calc_skewness(values: FloatArray) -> float:
-    """Return the skewness of ``values``.
-
-    The skewness is the third central moment over the 1.5th power of the second. The
-    moments are population moments, without a bias correction, as in the default of
-    ``scipy.stats.skew``.
-
-    Parameters
-    ----------
-    values : FloatArray
-        A one-dimensional sample.
-
-    Returns
-    -------
-    float
-        The skewness, or NaN where the variance is zero to within the floating-point
-        resolution of the mean, as for a single value or equal values.
-
-    Examples
-    --------
-    >>> calc_skewness(np.array([0.0, 0.0, 3.0]))
-    0.7071067811865475
-    >>> calc_skewness(np.array([2.0, 2.0]))
-    nan
-    """
-    mean = values.mean()
-    deviations = values - mean
-    second = np.mean(deviations**2)
-    third = np.mean(deviations**3)
-    # A variance at the rounding error of the mean is zero, and the skewness is
-    # undefined. scipy.stats.skew applies the same threshold.
-    if second <= (np.finfo(np.float64).eps * mean) ** 2:
-        return float("nan")
-
-    return float(third / second**1.5)
-
-
-def calc_usr_moments_from_coords(coords: FloatArray) -> FloatArray:
-    """Return the USR moments of one set of atomic coordinates.
-
-    Parameters
-    ----------
-    coords : FloatArray
-        Coordinates in the shape ``(atoms, 3)``.
-
-    Returns
-    -------
-    FloatArray
-        The :data:`NUM_MOMENTS` moments: mean, standard deviation and cube root of
-        the skewness of the distances to ``ctd``, ``cst``, ``fct`` and ``ftf``, in
-        that order. A skewness that is undefined, as for fewer than three distinct
-        distances, gives NaN.
+        The moments in the shape ``(conformers, NUM_MOMENTS)``: for ``ctd``, ``cst``,
+        ``fct`` and ``ftf`` in turn, the mean, the population standard deviation and
+        the cube root of the population skewness of the distances. A skewness is NaN
+        where the variance is zero to within the floating-point resolution of the
+        mean, as for a single atom.
 
     Raises
     ------
     ValueError
-        If ``coords`` holds no atoms.
+        If ``coords`` is not in the shape ``(conformers, atoms, 3)``, or holds no atoms.
 
     Examples
     --------
-    Four atoms on a line, one unit apart:
+    One conformer of four atoms on a line, one unit apart:
 
-    >>> moments = calc_usr_moments_from_coords(
-    ...     np.array([[0.0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]])
-    ... )
+    >>> line = np.array([[[0.0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]]])
+    >>> moments = calc_usr_moments(line)
     >>> moments.shape
-    (12,)
-    >>> print(moments[:3])
+    (1, 12)
+    >>> print(moments[0, :3])
     [1.  0.5 0. ]
     """
-    if not len(coords):
+    if coords.ndim != 3 or coords.shape[2] != 3:
+        raise ValueError(
+            f"coords must have the shape (conformers, atoms, 3), not {coords.shape}"
+        )
+    if not coords.shape[1]:
         raise ValueError("cannot calculate USR moments of zero atoms")
+    conformers = np.arange(coords.shape[0])
 
-    ctd = coords.mean(axis=0)
-    dist_ctd = calc_dist_to_point(coords, ctd)
+    # The reference points, each (conformers, 3).
+    ctd = coords.mean(axis=1)
+    dist_ctd = np.sqrt(((coords - ctd[:, None, :]) ** 2).sum(axis=2))
+    cst = coords[conformers, dist_ctd.argmin(axis=1)]
+    fct = coords[conformers, dist_ctd.argmax(axis=1)]
+    dist_fct = np.sqrt(((coords - fct[:, None, :]) ** 2).sum(axis=2))
+    ftf = coords[conformers, dist_fct.argmax(axis=1)]
 
-    cst = coords[dist_ctd.argmin()]
-    fct = coords[dist_ctd.argmax()]
-    dist_cst = calc_dist_to_point(coords, cst)
-    dist_fct = calc_dist_to_point(coords, fct)
+    # The distances of every atom to every point: (conformers, 4, atoms).
+    points = np.stack([ctd, cst, fct, ftf], axis=1)
+    dist = np.sqrt(((coords[:, None, :, :] - points[:, :, None, :]) ** 2).sum(axis=3))
 
-    ftf = coords[dist_fct.argmax()]
-    dist_ftf = calc_dist_to_point(coords, ftf)
+    # The population moments over the atoms, each (conformers, 4).
+    mean = dist.mean(axis=2)
+    deviations = dist - mean[:, :, None]
+    second = (deviations**2).mean(axis=2)
+    third = (deviations**3).mean(axis=2)
+    # A variance at the rounding error of the mean is zero: the skewness is NaN.
+    # scipy.stats.skew applies the same threshold.
+    defined = second > (np.finfo(np.float64).eps * mean) ** 2
+    skewness = np.divide(
+        third, second**1.5, out=np.full_like(second, np.nan), where=defined
+    )
 
-    moments = [
-        moment
-        for dist in (dist_ctd, dist_cst, dist_fct, dist_ftf)
-        for moment in (dist.mean(), dist.std(), np.cbrt(calc_skewness(dist)))
-    ]
+    # (conformers, 4, 3) -> (conformers, 12), point by point.
+    moments = np.stack([mean, np.sqrt(second), np.cbrt(skewness)], axis=2)
 
-    return np.array(moments, dtype=np.float64)
+    return moments.reshape(-1, NUM_MOMENTS)
 
 
 def get_usr_moments(mol: Chem.Mol, *, explicit_h: bool = False) -> FloatArray:
@@ -234,6 +186,11 @@ def get_usr_moments(mol: Chem.Mol, *, explicit_h: bool = False) -> FloatArray:
         the shape ``(conformers, NUM_MOMENTS)``. A molecule without conformers gives
         zero rows.
 
+    Raises
+    ------
+    ValueError
+        If the molecule has conformers but no atoms.
+
     Examples
     --------
     >>> from rdkit.Chem import rdDistGeom
@@ -244,13 +201,15 @@ def get_usr_moments(mol: Chem.Mol, *, explicit_h: bool = False) -> FloatArray:
     """
     if not explicit_h:
         mol = Chem.RemoveHs(mol)
+    if not mol.GetNumConformers():
+        return np.empty((0, NUM_MOMENTS))
 
-    rows = [
-        calc_usr_moments_from_coords(conformer.GetPositions())
-        for conformer in mol.GetConformers()
-    ]
+    coords = np.array(
+        [conformer.GetPositions() for conformer in mol.GetConformers()],
+        dtype=np.float64,
+    )
 
-    return np.array(rows, dtype=np.float64).reshape(len(rows), NUM_MOMENTS)
+    return calc_usr_moments(coords)
 
 
 def get_usr_moment_table(

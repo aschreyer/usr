@@ -10,24 +10,23 @@ from rdkit.Chem import rdDistGeom
 from usr.moments import (
     NUM_MOMENTS,
     MomentTable,
-    calc_skewness,
-    calc_usr_moments_from_coords,
+    calc_usr_moments,
     get_usr_moment_table,
     get_usr_moments,
 )
 
 
-def moments_by_formula(points: list[tuple[float, float, float]]) -> list[float]:
+def moments_by_formula(points: list[list[float]]) -> list[float]:
     """Return the USR moments of ``points``, from the definitions, in plain Python.
 
-    The oracle for :func:`calc_usr_moments_from_coords`. It shares no code with it:
+    The oracle for :func:`calc_usr_moments`. It shares no code with it:
     lists, ``math.dist`` and the moment sums written out. A tie between reference atoms
     goes to the first, as ``argmin`` and ``argmax`` break it.
     """
     count = len(points)
-    centroid = tuple(sum(point[axis] for point in points) / count for axis in range(3))
+    centroid = [sum(point[axis] for point in points) / count for axis in range(3)]
 
-    def distances(reference: tuple[float, ...]) -> list[float]:
+    def distances(reference: list[float]) -> list[float]:
         return [math.dist(point, reference) for point in points]
 
     def summarise(values: list[float]) -> list[float]:
@@ -59,15 +58,13 @@ def test_three_collinear_atoms_have_the_hand_derived_moments() -> None:
     skewness -1/sqrt(2)); ftf is the first again. The cube root of 1/sqrt(2) is
     2^(-1/6).
     """
-    coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [3.0, 0.0, 0.0]])
+    coords = np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [3.0, 0.0, 0.0]]])
     root = 2 ** (-1 / 6)
     sqrt2 = math.sqrt(2)
 
     expected = [4 / 3, sqrt2 / 3, root, 1, sqrt2, root, 2, sqrt2, -root, 1, sqrt2, root]
 
-    assert calc_usr_moments_from_coords(coords).tolist() == pytest.approx(
-        expected, rel=1e-14
-    )
+    assert calc_usr_moments(coords)[0].tolist() == pytest.approx(expected, rel=1e-14)
 
 
 def test_a_regular_tetrahedron_has_an_undefined_centroid_skewness() -> None:
@@ -79,36 +76,76 @@ def test_a_regular_tetrahedron_has_an_undefined_centroid_skewness() -> None:
     deviation sqrt(6)/2, and skewness -2/sqrt(3), whose cube root is
     -(2/sqrt(3))^(1/3).
     """
-    coords = np.array([[1.0, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]])
+    coords = np.array([[[1.0, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]])
     vertex = [3 * math.sqrt(2) / 2, math.sqrt(6) / 2, -((2 / math.sqrt(3)) ** (1 / 3))]
 
-    moments = calc_usr_moments_from_coords(coords)
+    moments = calc_usr_moments(coords)[0]
 
     assert moments[:2].tolist() == pytest.approx([math.sqrt(3), 0.0], abs=1e-14)
     assert math.isnan(moments[2])
     assert moments[3:].tolist() == pytest.approx(vertex * 3, rel=1e-14)
 
 
-def test_moments_of_random_points_agree_with_the_formula() -> None:
+def test_a_single_atom_has_zero_distances_and_undefined_skewness() -> None:
+    """Derived by hand: every distance is 0, so each skewness is 0/0."""
+    moments = calc_usr_moments(np.array([[[1.5, -2.0, 0.25]]]))[0]
+
+    assert moments[[0, 1, 3, 4, 6, 7, 9, 10]].tolist() == [0.0] * 8
+    assert np.isnan(moments[[2, 5, 8, 11]]).all()
+
+
+def test_moments_of_random_conformers_agree_with_the_formula() -> None:
     """Checked against a separate computation: :func:`moments_by_formula`.
 
-    That is a plain-Python implementation of the definitions. The points are seeded.
+    That is a plain-Python implementation of the definitions, applied to each
+    conformer on its own, so the test also shows that conformers do not mix. The
+    points are seeded. Two summation orders round differently, so the comparison has
+    a tolerance.
     """
     rng = np.random.default_rng(7)
     for count in (3, 10, 50):
-        coords = rng.normal(scale=4.0, size=(count, 3))
+        coords = rng.normal(scale=4.0, size=(5, count, 3))
 
-        expected = moments_by_formula([tuple(point) for point in coords.tolist()])
+        moments = calc_usr_moments(coords)
 
-        assert calc_usr_moments_from_coords(coords).tolist() == pytest.approx(
-            expected, rel=1e-10
-        )
+        for conformer, row in zip(coords.tolist(), moments.tolist(), strict=True):
+            expected = moments_by_formula(conformer)
+            assert row == pytest.approx(expected, rel=1e-12)
+
+
+def test_a_tie_between_reference_atoms_goes_to_the_lower_index() -> None:
+    """Checked against :func:`moments_by_formula`, which takes the first of a tie.
+
+    The centroid is the origin, and every squared distance is an integer, so ties are
+    exact. Atoms 1 and 5 tie as the closest to the centroid, 0 and 4 as the farthest,
+    and 3 and 5 as the farthest from atom 0. Swapping either pair of a tie changes the
+    moments, so each of cst, fct and ftf is pinned to the lower index.
+    """
+    points = [[-3, -1, 2], [-2, 1, -1], [2, -2, 0], [0, -1, -3], [2, 1, 3], [1, 2, -1]]
+    coords = [[float(value) for value in point] for point in points]
+    moments = calc_usr_moments(np.array([coords]))[0]
+
+    assert moments.tolist() == pytest.approx(moments_by_formula(coords), rel=1e-12)
+    for first, second in [(1, 5), (0, 4), (3, 5)]:
+        swapped = list(coords)
+        swapped[first], swapped[second] = coords[second], coords[first]
+        assert not np.allclose(calc_usr_moments(np.array([swapped]))[0], moments)
+
+
+@pytest.mark.parametrize("shape", [(4, 3), (1, 4, 2), (2, 1, 4, 3)])
+def test_coordinates_in_another_shape_are_refused(shape: tuple[int, ...]) -> None:
+    with pytest.raises(ValueError, match="coords must have the shape") as caught:
+        calc_usr_moments(np.zeros(shape))
+
+    assert str(caught.value) == (
+        f"coords must have the shape (conformers, atoms, 3), not {shape}"
+    )
 
 
 def test_moments_are_invariant_under_rotation_and_translation(
     aspirin_conformers: Chem.Mol,
 ) -> None:
-    coords = aspirin_conformers.GetConformer(0).GetPositions()
+    coords = np.array([aspirin_conformers.GetConformer(0).GetPositions()])
     rng = np.random.default_rng(11)
     rotation, _ = np.linalg.qr(rng.normal(size=(3, 3)))
     if np.linalg.det(rotation) < 0:
@@ -117,54 +154,10 @@ def test_moments_are_invariant_under_rotation_and_translation(
     moved = coords @ rotation.T + np.array([12.5, -3.0, 40.0])
 
     np.testing.assert_allclose(
-        calc_usr_moments_from_coords(moved),
-        calc_usr_moments_from_coords(coords),
+        calc_usr_moments(moved),
+        calc_usr_moments(coords),
         rtol=1e-9,
     )
-
-
-@pytest.mark.parametrize(
-    ("values", "expected"),
-    [
-        ([0.0, 0.0, 3.0], 1 / math.sqrt(2)),
-        ([0.0, 1.0, 1.0, 1.0], -2 / math.sqrt(3)),
-        ([1.0, 2.0, 3.0], 0.0),
-    ],
-)
-def test_the_skewness_has_the_hand_derived_value(
-    values: list[float], expected: float
-) -> None:
-    """Derived by hand from the population moments.
-
-    0, 0, 3: mean 1, deviations -1, -1, 2, second moment 2, third moment 2, so
-    2 / 2^1.5 = 1/sqrt(2). 0, 1, 1, 1: mean 3/4, second moment 3/16, third moment
-    -3/32, so -2/sqrt(3). 1, 2, 3 is symmetric, so 0.
-    """
-    assert calc_skewness(np.array(values)) == pytest.approx(expected, abs=1e-15)
-
-
-@pytest.mark.parametrize("values", [[2.5] * 5, [0.0]])
-def test_the_skewness_of_equal_values_is_undefined(values: list[float]) -> None:
-    """Derived by hand: the variance is zero, so the skewness is 0/0."""
-    assert math.isnan(calc_skewness(np.array(values)))
-
-
-def test_the_skewness_agrees_with_the_formula() -> None:
-    """Checked against a separate computation: the moment sums in plain Python.
-
-    The samples are seeded. Two summation orders round differently, so the
-    comparison has a tolerance.
-    """
-    rng = np.random.default_rng(3)
-    for size in (3, 12, 100, 1000):
-        sample = (rng.gamma(2.0, size=size) * 5).tolist()
-        mean = sum(sample) / size
-        second = sum((value - mean) ** 2 for value in sample) / size
-        third = sum((value - mean) ** 3 for value in sample) / size
-
-        assert calc_skewness(np.array(sample)) == pytest.approx(
-            third / second**1.5, rel=1e-12
-        )
 
 
 def test_seeded_conformer_generation_gives_the_same_moments() -> None:
@@ -188,15 +181,14 @@ def test_hydrogens_are_removed_unless_explicit_h_is_set(
     ``Chem.RemoveHs`` returns a new molecule, and the code discarded it.
     """
     heavy = Chem.RemoveHs(aspirin_conformers)
-    by_hand = [
-        calc_usr_moments_from_coords(conformer.GetPositions())
-        for conformer in heavy.GetConformers()
-    ]
+    by_hand = calc_usr_moments(
+        np.array([conformer.GetPositions() for conformer in heavy.GetConformers()])
+    )
 
     without_h = get_usr_moments(aspirin_conformers)
     with_h = get_usr_moments(aspirin_conformers, explicit_h=True)
 
-    np.testing.assert_array_equal(without_h, np.array(by_hand))
+    np.testing.assert_array_equal(without_h, by_hand)
     assert with_h.shape == without_h.shape == (3, NUM_MOMENTS)
     assert not np.allclose(with_h, without_h)
     assert aspirin_conformers.GetNumAtoms() == 21
@@ -271,7 +263,7 @@ def test_a_molecule_without_atoms_is_skipped_with_a_warning(
 
 def test_coordinates_of_zero_atoms_are_refused() -> None:
     with pytest.raises(ValueError, match="zero atoms") as caught:
-        calc_usr_moments_from_coords(np.empty((0, 3)))
+        calc_usr_moments(np.empty((1, 0, 3)))
 
     assert str(caught.value) == "cannot calculate USR moments of zero atoms"
 
