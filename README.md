@@ -23,50 +23,50 @@ cheap.
 ## How USR works
 
 USR describes a conformer of $N$ atoms at positions
-$`\mathbf{x}_1, \dots, \mathbf{x}_N`$ by its distances to four reference points:
+$\mathbf x_1, \dots, \mathbf x_N$ by its distances to four reference points:
 
-- $`\mathbf{c}_{\mathrm{ctd}} = \frac{1}{N} \sum_{k=1}^{N} \mathbf{x}_k`$, the
+- $\mathbf c_{\mathrm{ctd}} = \frac{1}{N} \sum_{k=1}^{N} \mathbf x_k$, the
   centroid;
-- $`\mathbf{c}_{\mathrm{cst}}`$, the atom closest to $`\mathbf{c}_{\mathrm{ctd}}`$:
-  $`\mathbf{x}_j`$ with $`j = \arg\min_k \lVert \mathbf{x}_k - \mathbf{c}_{\mathrm{ctd}} \rVert`$;
-- $`\mathbf{c}_{\mathrm{fct}}`$, the atom farthest from $`\mathbf{c}_{\mathrm{ctd}}`$:
-  $`\mathbf{x}_j`$ with $`j = \arg\max_k \lVert \mathbf{x}_k - \mathbf{c}_{\mathrm{ctd}} \rVert`$;
-- $`\mathbf{c}_{\mathrm{ftf}}`$, the atom farthest from $`\mathbf{c}_{\mathrm{fct}}`$:
-  $`\mathbf{x}_j`$ with $`j = \arg\max_k \lVert \mathbf{x}_k - \mathbf{c}_{\mathrm{fct}} \rVert`$.
+- $\mathbf c_{\mathrm{cst}}$, the atom closest to $\mathbf c_{\mathrm{ctd}}$:
+  $\mathbf x_j$ with $j = \arg\min_k \lVert \mathbf x_k - \mathbf c_{\mathrm{ctd}} \rVert$;
+- $\mathbf c_{\mathrm{fct}}$, the atom farthest from $\mathbf c_{\mathrm{ctd}}$:
+  $\mathbf x_j$ with $j = \arg\max_k \lVert \mathbf x_k - \mathbf c_{\mathrm{ctd}} \rVert$;
+- $\mathbf c_{\mathrm{ftf}}$, the atom farthest from $\mathbf c_{\mathrm{fct}}$:
+  $\mathbf x_j$ with $j = \arg\max_k \lVert \mathbf x_k - \mathbf c_{\mathrm{fct}} \rVert$.
 
 Where atoms tie, the one with the lowest index $k$ is taken. For each reference
-point $r$, the distances $`d_k^r = \lVert \mathbf{x}_k - \mathbf{c}_r \rVert`$ form a
+point $r$, the distances $d_k^r = \lVert \mathbf x_k - \mathbf c_r \rVert$ form a
 distribution, summarised by its mean, its population standard deviation and the
 cube root of its standardised skewness:
 
-```math
+$$
 \mu_1^r = \frac{1}{N} \sum_{k=1}^{N} d_k^r, \qquad
 \mu_2^r = \sqrt{\frac{1}{N} \sum_{k=1}^{N} \left(d_k^r - \mu_1^r\right)^2}, \qquad
 \mu_3^r = \sqrt[3]{\frac{1}{N} \sum_{k=1}^{N}
   \left(\frac{d_k^r - \mu_1^r}{\mu_2^r}\right)^3}
-```
+$$
 
-The cube root is real, so $`\mu_3^r`$ keeps the sign of the skewness. Where
-$`\mu_2^r = 0`$, as for a single atom, the skewness is undefined and $`\mu_3^r`$ is
+The cube root is real, so $\mu_3^r$ keeps the sign of the skewness. Where
+$\mu_2^r = 0$, as for a single atom, the skewness is undefined and $\mu_3^r$ is
 NaN. The four distributions give the 12 moments `M1` to `M12`:
 
-```math
+$$
 M = \left(\mu_1^{\mathrm{ctd}}, \mu_2^{\mathrm{ctd}}, \mu_3^{\mathrm{ctd}},
   \mu_1^{\mathrm{cst}}, \dots, \mu_3^{\mathrm{ftf}}\right)
-```
+$$
 
 The similarity of a query conformer $q$ and a database conformer $i$ is
 
-```math
+$$
 S_{qi} = \frac{1}{1 + \frac{1}{12} \sum_{l=1}^{12} \left| M_l^q - M_l^i \right|}
   \in (0, 1],
-```
+$$
 
 1 for identical moments, falling towards 0 as they differ. USR ignores atom
 types and needs 3D coordinates; a 2D drawing gives the moments of a flat shape.
 
 > [!NOTE]
-> The 2007 paper's text calls $`\mu_2`$ the variance and $`\mu_3`$ the skewness, and
+> The 2007 paper's text calls $\mu_2$ the variance and $\mu_3$ the skewness, and
 > the values in its Figure 3 match the variance and the raw third central
 > moment. The method's author has confirmed that the intended descriptors are
 > the population standard deviation and the cube root of the standardised
