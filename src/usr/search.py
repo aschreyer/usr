@@ -1,7 +1,7 @@
 """Similarity search: score a database of USR moments against query moments.
 
 :func:`screen` scores each query row against every database row with
-:func:`~usr.similarity.calc_usr_sim_nd` and yields the database rows best first, as
+:func:`~usr.similarity.calc_usr_sim` and yields the database rows best first, as
 :class:`Hit` records. Both sides are :class:`~usr.moments.MomentTable` objects, which
 :mod:`usr.moments` calculates and :mod:`usr.io` reads. Every row is a conformer, so a
 molecule with several conformers in the database can be hit several times.
@@ -27,7 +27,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from usr.moments import MomentTable
-from usr.similarity import calc_usr_sim_nd
+from usr.similarity import calc_usr_sim
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,7 +98,7 @@ def _screen(
     for title, conformer, moments in zip(
         query.titles, query.conformers, query.moments, strict=True
     ):
-        scores = calc_usr_sim_nd(moments, database.moments)
+        scores = calc_usr_sim(moments, database.moments)
         # Negated, so the stable ascending sort puts the best first and NaN last.
         order = np.argsort(-scores, kind="stable")[:top]
         for row in order.tolist():

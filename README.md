@@ -111,7 +111,7 @@ paracetamol  0.616
 | Module | Holds |
 |---|---|
 | `usr.moments` | `get_usr_moments` for one molecule, `get_usr_moment_table` for many, `calc_usr_moments` for a `(conformers, atoms, 3)` coordinate array |
-| `usr.similarity` | `calc_usr_sim` for a pair, `calc_usr_sim_nd` for one against many |
+| `usr.similarity` | `calc_usr_sim` for one set of moments against many |
 | `usr.search` | `screen`, which yields `Hit` records best first |
 | `usr.io` | `read_molecules` for SD files; `read_moment_table`, `write_moment_table` and `write_hits` for CSV |
 
