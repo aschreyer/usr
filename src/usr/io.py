@@ -31,39 +31,11 @@ type Target = Path | str | TextIO
 type Source = Path | str | TextIO
 """Where text comes from: a path, opened for reading, or an open text stream."""
 
-SDF_SUFFIXES = ((".sdf",), (".sdf", ".gz"))
-"""The file name endings :func:`read_molecules` accepts: SD files, plain or gzipped."""
-
 MOMENT_HEADER = ("Title", "Conformer", *MOMENT_COLUMNS)
 """The header of a moments CSV: the molecule, the conformer id and the moments."""
 
 HIT_HEADER = ("Query", "QueryConformer", "Title", "Conformer", "Score")
 """The header of a search result CSV: the query row, the database row and the score."""
-
-
-def is_sdf(path: Path | str) -> bool:
-    """Return whether the name of ``path`` ends in ``.sdf`` or ``.sdf.gz``.
-
-    Parameters
-    ----------
-    path : Path | str
-        The file name. The file is not opened.
-
-    Returns
-    -------
-    bool
-        True for an SD file name, plain or gzipped.
-
-    Examples
-    --------
-    >>> is_sdf("mols.sdf"), is_sdf("mols.sdf.gz")
-    (True, True)
-    >>> is_sdf("mols.gz"), is_sdf("mols.csv"), is_sdf("mols")
-    (False, False, False)
-    """
-    suffixes = tuple(suffix.lower() for suffix in Path(path).suffixes)
-
-    return any(suffixes[-len(ending) :] == ending for ending in SDF_SUFFIXES)
 
 
 def read_molecules(path: Path | str, *, remove_hs: bool = True) -> Iterator[Chem.Mol]:
@@ -95,7 +67,7 @@ def read_molecules(path: Path | str, *, remove_hs: bool = True) -> Iterator[Chem
     path = Path(path)
     if not path.is_file():
         raise ValueError(f"cannot read molecules from {path}: no such file")
-    if not is_sdf(path):
+    if not path.name.lower().endswith((".sdf", ".sdf.gz")):
         raise ValueError(
             f"cannot read molecules from {path.name}: only SD files are supported, "
             f"named *.sdf or *.sdf.gz"

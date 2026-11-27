@@ -14,13 +14,6 @@ from usr.moments import NUM_MOMENTS, MomentTable, get_usr_moment_table
 from usr.search import Hit
 
 
-def test_sd_file_names_are_recognised_by_their_ending() -> None:
-    assert io.is_sdf(Path("a/mols.SDF"))
-    assert io.is_sdf("mols.v2.sdf.gz")
-    assert not io.is_sdf("sdf")
-    assert not io.is_sdf("mols.sdf.csv")
-
-
 def test_the_molecules_of_an_sd_file_are_read_in_order(drugs_sdf: Path) -> None:
     mols = list(io.read_molecules(drugs_sdf))
 
@@ -31,6 +24,15 @@ def test_the_molecules_of_an_sd_file_are_read_in_order(drugs_sdf: Path) -> None:
 
 def test_hydrogen_atoms_are_kept_on_request(drugs_sdf: Path) -> None:
     assert next(io.read_molecules(drugs_sdf, remove_hs=False)).GetNumAtoms() == 21
+
+
+def test_an_sd_file_name_is_matched_without_regard_to_case(
+    drugs_sdf: Path, tmp_path: Path
+) -> None:
+    path = tmp_path / "DRUGS.SDF"
+    path.write_bytes(drugs_sdf.read_bytes())
+
+    assert len(list(io.read_molecules(path))) == 6
 
 
 def test_a_gzipped_sd_file_reads_as_the_plain_one(
@@ -62,7 +64,7 @@ def test_an_unreadable_record_is_skipped_with_a_warning(
     ]
 
 
-@pytest.mark.parametrize("name", ["mols.mol2", "mols.gz", "mols"])
+@pytest.mark.parametrize("name", ["mols.mol2", "mols.gz", "mols", "mols.sdf.csv"])
 def test_a_file_that_is_not_an_sd_file_is_refused_before_reading(
     name: str, tmp_path: Path, drugs_sdf: Path
 ) -> None:
