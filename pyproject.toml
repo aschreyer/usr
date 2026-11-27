@@ -60,9 +60,6 @@ dev = [
 source = "vcs"
 fallback-version = "0.0.0"
 
-[tool.hatch.build]
-include = ["src/usr/**/*.py", "src/usr/py.typed"]
-
 [tool.hatch.build.targets.sdist]
 include = [
     "src/usr/**/*.py",
@@ -72,18 +69,16 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-sources = ["src"]
+packages = ["src/usr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "src"]
-python_files = ["test_*.py"]
 addopts = [
     "--import-mode=importlib",
     "--doctest-modules",
     "--strict-markers",
     "--strict-config",
 ]
-doctest_optionflags = "NORMALIZE_WHITESPACE"
 filterwarnings = ["error"]
 
 [tool.coverage.run]
@@ -141,8 +136,6 @@ ignore = [
     "TC002",   # import at runtime, which breaks introspection such as Typer's
     "TC003",   # reading of annotations, for no gain here.
 ]
-fixable = ["ALL"]
-unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "D103"]
@@ -151,8 +144,6 @@ unfixable = []
 "__future__.annotations".msg = "Annotations are evaluated as written; no future import is needed"
 
 [tool.ruff.lint.isort]
-known-first-party = ["usr"]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 lines-after-imports = 2
 
 [tool.ruff.lint.pydocstyle]
@@ -162,19 +153,12 @@ convention = "numpy"
 max-doc-length = 88
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
-line-ending = "auto"
 docstring-code-format = true
-docstring-code-line-length = "dynamic"
 
 [tool.mypy]
 # The floor of `requires-python`. mypy reads no version from `[project]`, and
 # without this key it checks against the interpreter in .python-version.
 python_version = "3.12"
-mypy_path = "src"
 strict = true
 warn_unreachable = true
-show_error_codes = true
 enable_error_code = ["ignore-without-code"]
