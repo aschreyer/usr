@@ -34,10 +34,15 @@ uvx pre-commit run --all-files
 
 ## The science
 
-- **Do not change what USR computes** without a reason stated against the paper:
-  Ballester and Richards (2007), doi:10.1002/jcc.20681. The moments are the
+- **Do not change what USR computes.** It implements Ballester and Richards
+  (2007), doi:10.1002/jcc.20681. The moments are the
   mean, the population standard deviation and the cube root of the biased
   skewness of the distances to `ctd`, `cst`, `fct` and `ftf`, in that order.
+- **Do not change the moments to match the paper's text.** It calls the second
+  and third moments the variance and the skewness, and its Figure 3 matches
+  the variance and the raw third central moment. The method's author confirmed
+  that the population standard deviation and the cube root of the standardised
+  skewness are intended; the code computes those. The README says so.
 - **Moments match the reference to within floating-point tolerance.** Tests
   compare them with a tolerance (`pytest.approx` or `assert_allclose`), never
   bit for bit: a change of summation order or of cube-root library moves the
