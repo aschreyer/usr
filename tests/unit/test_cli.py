@@ -246,7 +246,7 @@ def test_a_closed_pipe_exits_zero(
 ) -> None:
     """``usr search ... | head`` closes the pipe early; that is not a failure."""
 
-    def closed_pipe(*_: object) -> int:
+    def closed_pipe(*_: object) -> None:
         raise BrokenPipeError
 
     monkeypatch.setattr(io, "write_hits", closed_pipe)

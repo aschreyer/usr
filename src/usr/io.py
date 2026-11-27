@@ -6,7 +6,7 @@ cannot read. :func:`write_moment_table` and :func:`read_moment_table` store a
 which is the database format of ``usr generate`` and ``usr search``.
 :func:`write_hits` writes the scores of :func:`usr.search.screen` as CSV.
 
-A target or source is a path, or an open text stream such as ``sys.stdout``, which is
+A :data:`Stream` is a path, or an open text stream such as ``sys.stdout``, which is
 left open.
 """
 
@@ -25,11 +25,8 @@ from usr.moments import MOMENT_COLUMNS, NUM_MOMENTS, MomentTable
 from usr.search import Hit
 
 
-type Target = Path | str | TextIO
-"""Where text goes: a path, opened for writing, or an open text stream."""
-
-type Source = Path | str | TextIO
-"""Where text comes from: a path, opened for reading, or an open text stream."""
+type Stream = Path | str | TextIO
+"""A path, which the function opens and closes, or an open text stream, left open."""
 
 MOMENT_HEADER = ("Title", "Conformer", *MOMENT_COLUMNS)
 """The header of a moments CSV: the molecule, the conformer id and the moments."""
@@ -94,7 +91,7 @@ def _read_records(path: Path, *, remove_hs: bool) -> Iterator[Chem.Mol]:
 
 
 def _open_text(
-    stream: Path | str | TextIO, mode: Literal["r", "w"]
+    stream: Stream, mode: Literal["r", "w"]
 ) -> contextlib.AbstractContextManager[TextIO]:
     """Open a path as text in ``mode``, or pass an open stream through unclosed."""
     if isinstance(stream, Path | str):
@@ -102,7 +99,7 @@ def _open_text(
     return contextlib.nullcontext(stream)
 
 
-def write_moment_table(table: MomentTable, target: Target) -> None:
+def write_moment_table(table: MomentTable, target: Stream) -> None:
     """Write a moment table as CSV, one row per conformer.
 
     The columns are :data:`MOMENT_HEADER`. Each moment is written with the digits
@@ -112,7 +109,7 @@ def write_moment_table(table: MomentTable, target: Target) -> None:
     ----------
     table : MomentTable
         The moments to write.
-    target : Target
+    target : Stream
         Where to write them.
     """
     with _open_text(target, "w") as stream:
@@ -125,12 +122,12 @@ def write_moment_table(table: MomentTable, target: Target) -> None:
     logger.info("wrote {} rows of USR moments", len(table))
 
 
-def read_moment_table(source: Source) -> MomentTable:
+def read_moment_table(source: Stream) -> MomentTable:
     """Read a moment table from CSV, as :func:`write_moment_table` writes it.
 
     Parameters
     ----------
-    source : Source
+    source : Stream
         Where to read from.
 
     Returns
@@ -177,7 +174,7 @@ def read_moment_table(source: Source) -> MomentTable:
     return MomentTable(tuple(titles), tuple(conformers), moments)
 
 
-def write_hits(hits: Iterable[Hit], target: Target) -> int:
+def write_hits(hits: Iterable[Hit], target: Stream) -> None:
     """Write search results as CSV, one row per hit, in the order given.
 
     The columns are :data:`HIT_HEADER`.
@@ -186,13 +183,8 @@ def write_hits(hits: Iterable[Hit], target: Target) -> int:
     ----------
     hits : Iterable[Hit]
         The hits. Each is written as it arrives.
-    target : Target
+    target : Stream
         Where to write them.
-
-    Returns
-    -------
-    int
-        The number of hits written.
     """
     count = 0
     with _open_text(target, "w") as stream:
@@ -204,5 +196,3 @@ def write_hits(hits: Iterable[Hit], target: Target) -> int:
             )
             count += 1
     logger.info("wrote {} hits", count)
-
-    return count

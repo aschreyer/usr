@@ -173,9 +173,8 @@ def test_hits_are_written_in_order_with_their_header(tmp_path: Path) -> None:
     path = tmp_path / "hits.csv"
     hits = [Hit("q", 0, "a", 1, 1.0), Hit("q", 0, "b", 0, 0.25)]
 
-    count = io.write_hits(iter(hits), path)
+    io.write_hits(iter(hits), path)
 
-    assert count == 2
     assert path.read_text().splitlines() == [
         "Query,QueryConformer,Title,Conformer,Score",
         "q,0,a,1,1.0",
