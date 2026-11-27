@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the method it implements, given under
+  preferred-citation.
+type: software
+title: "USR: Ultrafast Shape Recognition"
+abstract: >-
+  A Python implementation of Ultrafast Shape Recognition (USR) on top of RDKit.
+  USR describes the shape of a 3D conformer with 12 moments of its atomic
+  distance distributions and compares shapes without aligning them. The
+  package calculates USR moments from SD files or RDKit molecules and screens
+  a database of moments against query molecules, from Python or the `usr`
+  command line.
+authors:
+  - family-names: Schreyer
+    given-names: Adrian
+license: MIT
+repository-code: "https://github.com/aschreyer/usr"
+url: "https://pypi.org/project/rd-usr/"
+keywords:
+  - cheminformatics
+  - molecular shape
+  - rdkit
+  - ultrafast shape recognition
+  - virtual screening
+preferred-citation:
+  type: article
+  title: Ultrafast shape recognition to search compound databases for similar molecular shapes
+  authors:
+    - family-names: Ballester
+      given-names: Pedro J.
+    - family-names: Richards
+      given-names: W. Graham
+  journal: Journal of Computational Chemistry
+  volume: 28
+  issue: 10
+  start: 1711
+  end: 1723
+  year: 2007
+  doi: 10.1002/jcc.20681

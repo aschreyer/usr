@@ -56,3 +56,18 @@ jobs:
           path: dist/
 
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
+
+  # The GitHub release for the tag, with notes generated from the merged pull
+  # requests and grouped as .github/release.yml says. Only after PyPI accepted
+  # the upload, so a release never names a version that pip cannot install.
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
