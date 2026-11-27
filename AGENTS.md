@@ -27,7 +27,11 @@ uvx pre-commit run --all-files
 - **Conventional Commits:** `type(scope): lower-case imperative subject`.
 - **The tag is the version.** hatch-vcs builds `v1.2.0` as `1.2.0`; an untagged
   tree builds a `.devN` version. Pushing a `v*` tag runs `publish.yml`, which
-  publishes to PyPI by trusted publishing.
+  publishes to PyPI by trusted publishing, then creates the GitHub release with
+  generated notes.
+- **Release notes group pull requests by label**, as `.github/release.yml`
+  lists: label a `feat:` pull request `enhancement`, a `fix:` one `bug` and a
+  `docs:` one `documentation`. Unlabelled ones go under "Other changes".
 - **Never push, tag or publish unless asked.**
 - **A measurement goes in the commit message**, never in a docstring or a
   comment, where nothing keeps it true.

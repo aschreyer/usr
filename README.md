@@ -200,8 +200,8 @@ uv build                     # sdist and wheel under dist/
 ```
 
 CI runs the same commands on Python 3.12 and 3.15. Pushing a `v*` tag
-publishes that version to PyPI. [AGENTS.md](AGENTS.md) records the code and
-test conventions.
+publishes that version to PyPI and creates its GitHub release.
+[AGENTS.md](AGENTS.md) records the code and test conventions.
 
 ## Licence
 

@@ -1,0 +1,27 @@
+# Categories for the release notes GitHub generates (publish.yml creates the
+# release). GitHub groups pull requests by label only, not by title. Label a
+# `feat:` pull request `enhancement`, a `fix:` pull request `bug` and a
+# `docs:` pull request `documentation`; Dependabot labels its own pull requests
+# `dependencies`. Anything unlabelled is listed under "Other changes".
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - wontfix
+  categories:
+    - title: Features
+      labels:
+        - enhancement
+    - title: Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"
