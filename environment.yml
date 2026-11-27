@@ -1,9 +1,0 @@
-name: usr
-channels:
-  - rdkit
-dependencies:
-  - python=3.8
-  - pip
-  - rdkit
-  - numpy
-  - scipy

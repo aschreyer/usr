@@ -1,0 +1,42 @@
+# Install with `uvx pre-commit install`; run with `uvx pre-commit run --all-files`.
+# Ruff and mypy run through `uv run`, so the hooks use the versions in uv.lock,
+# as CI does.
+
+# SD files are test data, written as RDKit writes them.
+exclude: ^tests/data/
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff check
+        entry: uv run --locked ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --locked ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+        require_serial: true
+
+      - id: mypy
+        name: mypy
+        entry: uv run --locked mypy src tests
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false

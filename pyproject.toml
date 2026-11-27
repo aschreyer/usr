@@ -1,0 +1,164 @@
+# Pinned exact: `build-system.requires` is resolved fresh at build time into an
+# isolated environment, and uv.lock does not cover it. Unpinned, the backend that
+# builds the published artefact is whatever the index served that day.
+[build-system]
+requires = ["hatchling==1.33.0", "hatch-vcs==0.5.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rd-usr"
+dynamic = ["version"]
+description = "Ultrafast Shape Recognition (USR) moments and similarity search with RDKit."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Adrian Schreyer" }]
+keywords = [
+    "cheminformatics",
+    "molecular shape",
+    "rdkit",
+    "ultrafast shape recognition",
+    "virtual screening",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Typing :: Typed",
+]
+dependencies = [
+    "loguru>=0.7.0",
+    "numpy>=2.0.0",
+    # rdkit 2024.3.1 crashes on import under NumPy 2; 2024.3.6 passes the tests.
+    "rdkit>=2024.3.6",
+    # Typer 0.27 vendors Click, so nothing here imports ``click``.
+    "typer>=0.27.0",
+]
+
+[project.scripts]
+usr = "usr.cli:app"
+
+[project.urls]
+Repository = "https://github.com/aschreyer/usr"
+Issues = "https://github.com/aschreyer/usr/issues"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.16.1",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.16.0",
+]
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/usr/**/*.py",
+    "src/usr/py.typed",
+    "tests/**/*.py",
+    "tests/data/*.sdf",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/usr"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "src"]
+addopts = [
+    "--import-mode=importlib",
+    "--doctest-modules",
+    "--strict-markers",
+    "--strict-config",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+
+# No `target-version`: ruff reads it from `project.requires-python`.
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "A",      # flake8-builtins
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "COM",    # flake8-commas
+    "D",      # pydocstyle
+    "DTZ",    # flake8-datetimez
+    "E",      # pycodestyle errors
+    "EM",     # flake8-errmsg
+    "F",      # pyflakes
+    "I",      # isort
+    "ICN",    # flake8-import-conventions
+    "N",      # pep8-naming
+    "PIE",    # flake8-pie
+    "PT",     # flake8-pytest-style
+    "PTH",    # flake8-use-pathlib
+    "Q",      # flake8-quotes
+    "RET",    # flake8-return
+    "RSE",    # flake8-raise
+    "RUF",    # ruff-specific
+    "S",      # flake8-bandit
+    "SIM",    # flake8-simplify
+    "T10",    # flake8-debugger
+    "TC",     # flake8-type-checking
+    "TID",    # flake8-tidy-imports
+    "UP",     # pyupgrade
+    "W",      # pycodestyle warnings
+    "YTT",    # flake8-2020
+]
+ignore = [
+    "E501",    # Line too long (handled by the formatter)
+    "COM812",  # Conflicts with the formatter
+    "D403",    # Capitalises a maths variable that starts a summary
+    "EM101",   # Exception must not use a string literal
+    "EM102",   # Exception must not use an f-string literal
+    "PTH123",  # open() should be Path.open()
+    "RET504",  # Unnecessary variable before return (often clearer)
+    "SIM108",  # Ternary operator (not always more readable)
+    "TC001",   # Imports stay at module level. A TYPE_CHECKING block hides the
+    "TC002",   # import at runtime, which breaks introspection such as Typer's
+    "TC003",   # reading of annotations, for no gain here.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "D103"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__future__.annotations".msg = "Annotations are evaluated as written; no future import is needed"
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 88
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+# The floor of `requires-python`. mypy reads no version from `[project]`, and
+# without this key it checks against the interpreter in .python-version.
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code"]
