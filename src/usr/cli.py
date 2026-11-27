@@ -30,6 +30,7 @@ app = typer.Typer(
     name="usr",
     no_args_is_help=True,
     add_completion=False,
+    rich_markup_mode="markdown",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 
@@ -144,7 +145,7 @@ def generate(
             exists=True,
             dir_okay=False,
             readable=True,
-            help="SD file of 3D conformers, *.sdf or *.sdf.gz.",
+            help="SD file of 3D conformers, `*.sdf` or `*.sdf.gz`.",
         ),
     ],
     output_path: OutputOption = None,
@@ -172,7 +173,7 @@ def search_database(
             exists=True,
             dir_okay=False,
             readable=True,
-            help="Query conformers: an SD file (*.sdf, *.sdf.gz) or a moments CSV (*.csv).",
+            help="Query conformers: an SD file (`*.sdf`, `*.sdf.gz`) or a moments CSV (`*.csv`).",
         ),
     ],
     database_path: Annotated[
