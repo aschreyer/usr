@@ -140,15 +140,15 @@ def calc_usr_moments(coords: FloatArray) -> FloatArray:
 
     # The reference points, each (conformers, 3).
     ctd = coords.mean(axis=1)
-    dist_ctd = np.sqrt(((coords - ctd[:, None, :]) ** 2).sum(axis=2))
+    dist_ctd = np.linalg.norm(coords - ctd[:, None, :], axis=2)
     cst = coords[conformers, dist_ctd.argmin(axis=1)]
     fct = coords[conformers, dist_ctd.argmax(axis=1)]
-    dist_fct = np.sqrt(((coords - fct[:, None, :]) ** 2).sum(axis=2))
+    dist_fct = np.linalg.norm(coords - fct[:, None, :], axis=2)
     ftf = coords[conformers, dist_fct.argmax(axis=1)]
 
     # The distances of every atom to every point: (conformers, 4, atoms).
     points = np.stack([ctd, cst, fct, ftf], axis=1)
-    dist = np.sqrt(((coords[:, None, :, :] - points[:, :, None, :]) ** 2).sum(axis=3))
+    dist = np.linalg.norm(coords[:, None, :, :] - points[:, :, None, :], axis=3)
 
     # The population moments over the atoms, each (conformers, 4).
     mean = dist.mean(axis=2)

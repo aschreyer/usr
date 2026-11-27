@@ -1,7 +1,7 @@
 """USR similarity: the score between sets of USR moments.
 
 The score of two moment vectors ``a`` and ``b`` of length ``n`` is
-``1 / (1 + sum(|a - b|) / n)``: 1 for identical moments, falling towards 0 as they
+``1 / (1 + mean(|a - b|))``: 1 for identical moments, falling towards 0 as they
 differ. :func:`calc_usr_sim` scores one vector against every row of a matrix, as
 :func:`usr.search.screen` does for each query conformer.
 """
@@ -49,4 +49,4 @@ def calc_usr_sim(m1: FloatArray, m2: FloatArray) -> FloatArray:
             f"{m2.shape}"
         )
 
-    return 1.0 / (1.0 + np.abs(m1 - m2).sum(axis=1) / m1.size)
+    return 1.0 / (1.0 + np.mean(np.abs(m1 - m2), axis=1))
