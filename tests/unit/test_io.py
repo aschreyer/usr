@@ -47,18 +47,11 @@ def test_a_gzipped_sd_file_reads_as_the_plain_one(
 
 
 def test_an_unreadable_record_is_skipped_with_a_warning(
-    sdf_with_a_bad_record: Path, caplog_loguru: list[str]
+    sdf_with_a_bad_record: Path, caplog_loguru: list[str], drug_names: list[str]
 ) -> None:
     names = [mol.GetProp("_Name") for mol in io.read_molecules(sdf_with_a_bad_record)]
 
-    assert names == [
-        "aspirin",
-        "caffeine",
-        "ibuprofen",
-        "paracetamol",
-        "nicotine",
-        "diazepam",
-    ]
+    assert names == drug_names
     assert caplog_loguru == [
         f"skipped record 2 of {sdf_with_a_bad_record}: RDKit could not read it"
     ]

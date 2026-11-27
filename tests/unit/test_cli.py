@@ -7,7 +7,6 @@ test parses it as CSV; diagnostics go to stderr.
 import csv
 import io as stdio
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -33,14 +32,6 @@ def drugs_csv(tmp_path: Path, drugs_sdf: Path) -> Path:
     result = runner.invoke(app, ["generate", str(drugs_sdf), "--out", str(path)])
     assert result.exit_code == 0, result.output
     return path
-
-
-@pytest.fixture
-def _restore_stdout() -> Iterator[None]:
-    """Put ``sys.stdout`` back after the broken-pipe path replaces it."""
-    original = sys.stdout
-    yield
-    sys.stdout = original
 
 
 def test_bare_usr_shows_help_and_exits_two() -> None:
@@ -75,18 +66,13 @@ def test_generate_writes_a_row_per_record_of_a_2d_file(
     assert rows[0]["Title"] == "CHEMBL2336071"
 
 
-def test_generate_writes_to_stdout_without_out(drugs_sdf: Path) -> None:
+def test_generate_writes_to_stdout_without_out(
+    drugs_sdf: Path, drug_names: list[str]
+) -> None:
     result = runner.invoke(app, ["generate", str(drugs_sdf)])
 
     assert result.exit_code == 0
-    assert [row["Title"] for row in rows_of(result.stdout)] == [
-        "aspirin",
-        "caffeine",
-        "ibuprofen",
-        "paracetamol",
-        "nicotine",
-        "diazepam",
-    ]
+    assert [row["Title"] for row in rows_of(result.stdout)] == drug_names
     assert result.stderr == ""
 
 
@@ -155,7 +141,7 @@ def test_verbose_logs_progress_on_stderr(drugs_sdf: Path) -> None:
 
 
 def test_search_finds_each_query_first_in_its_own_database(
-    drugs_sdf: Path, drugs_csv: Path
+    drugs_sdf: Path, drugs_csv: Path, drug_names: list[str]
 ) -> None:
     result = runner.invoke(app, ["search", str(drugs_sdf), str(drugs_csv), "-n", "1"])
 
@@ -163,15 +149,7 @@ def test_search_finds_each_query_first_in_its_own_database(
     assert result.exit_code == 0
     assert list(rows[0]) == ["Query", "QueryConformer", "Title", "Conformer", "Score"]
     assert [(row["Query"], row["Title"], row["Score"]) for row in rows] == [
-        (name, name, "1.0")
-        for name in (
-            "aspirin",
-            "caffeine",
-            "ibuprofen",
-            "paracetamol",
-            "nicotine",
-            "diazepam",
-        )
+        (name, name, "1.0") for name in drug_names
     ]
 
 
@@ -240,7 +218,6 @@ def test_search_refuses_a_top_below_one(drugs_sdf: Path, drugs_csv: Path) -> Non
     assert "Invalid value for '--top' / '-n'" in result.stderr
 
 
-@pytest.mark.usefixtures("_restore_stdout")
 def test_a_closed_pipe_exits_zero(
     drugs_sdf: Path, drugs_csv: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -251,7 +228,10 @@ def test_a_closed_pipe_exits_zero(
 
     monkeypatch.setattr(io, "write_hits", closed_pipe)
 
+    before = sys.stdout
     result = runner.invoke(app, ["search", str(drugs_sdf), str(drugs_csv)])
 
     assert result.exit_code == 0
     assert result.stderr == ""
+    # CliRunner restores the stdout that the broken-pipe path replaced.
+    assert sys.stdout is before

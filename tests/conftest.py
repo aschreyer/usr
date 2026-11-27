@@ -74,6 +74,12 @@ def sdf_with_a_bad_record(tmp_path: Path, drugs_sdf: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
+def drug_names() -> list[str]:
+    """Return the titles of the records in ``drugs_sdf``, in file order."""
+    return ["aspirin", "caffeine", "ibuprofen", "paracetamol", "nicotine", "diazepam"]
+
+
+@pytest.fixture(scope="session")
 def drug_mols(drugs_sdf: Path) -> list[Chem.Mol]:
     """Return the molecules of ``drugs_sdf``, hydrogen atoms kept, read by RDKit alone.
 
@@ -107,18 +113,16 @@ def _restore_logging() -> Iterator[None]:
 
 
 @pytest.fixture
-def caplog_loguru() -> Iterator[list[str]]:
+def caplog_loguru() -> list[str]:
     """Collect this test's ``WARNING`` and worse from loguru, as plain strings.
 
     Enables the package first, because ``usr`` disables its own logging on import.
     ``caplog`` collects nothing here, because loguru does not route through
-    :mod:`logging`.
+    :mod:`logging`. ``_restore_logging`` removes the sink after the test.
     """
     messages: list[str] = []
-    sink = logger.add(
+    logger.add(
         lambda message: messages.append(message.record["message"]), level="WARNING"
     )
     logger.enable("usr")
-    yield messages
-    logger.disable("usr")
-    logger.remove(sink)
+    return messages

@@ -199,7 +199,7 @@ def test_a_molecule_without_conformers_has_no_rows() -> None:
 
 
 def test_explicit_h_on_and_off_both_give_a_row_per_record_and_differ(
-    drug_mols: list[Chem.Mol],
+    drug_mols: list[Chem.Mol], drug_names: list[str]
 ) -> None:
     """Measured: before the fix, ``--explicit-h`` wrote a header and no rows.
 
@@ -208,8 +208,7 @@ def test_explicit_h_on_and_off_both_give_a_row_per_record_and_differ(
     without_h = get_usr_moment_table(drug_mols)
     with_h = get_usr_moment_table(drug_mols, explicit_h=True)
 
-    names = ("aspirin", "caffeine", "ibuprofen", "paracetamol", "nicotine", "diazepam")
-    assert without_h.titles == with_h.titles == names
+    assert list(without_h.titles) == list(with_h.titles) == drug_names
     assert without_h.conformers == with_h.conformers == (0,) * 6
     assert not np.allclose(with_h.moments, without_h.moments)
 
