@@ -3,6 +3,7 @@
 import gzip
 import io as stdio
 import math
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +11,11 @@ import pytest
 from rdkit import Chem
 
 from usr import io
-from usr.moments import NUM_MOMENTS, MomentTable, get_usr_moment_table
+from usr.moments import (
+    MomentTable,
+    get_usr_moment_table,
+    get_usrcat_moment_table,
+)
 from usr.search import Hit
 
 
@@ -83,14 +88,20 @@ def test_a_missing_file_is_refused_before_reading(tmp_path: Path) -> None:
     assert str(caught.value) == f"cannot read molecules from {path}: no such file"
 
 
+@pytest.mark.parametrize(
+    "get_table", [get_usr_moment_table, get_usrcat_moment_table], ids=["usr", "usrcat"]
+)
 def test_a_moment_table_survives_a_round_trip_exactly(
-    aspirin_conformers: Chem.Mol, tmp_path: Path
+    get_table: Callable[[list[Chem.Mol]], MomentTable],
+    aspirin_conformers: Chem.Mol,
+    tmp_path: Path,
 ) -> None:
-    table = get_usr_moment_table([aspirin_conformers])
+    table = get_table([aspirin_conformers])
+    width = table.moments.shape[1]
     odd = MomentTable(
         ('Title, with "quotes"',),
         (7,),
-        np.array([[math.nan, -0.0, 1e-300, *range(NUM_MOMENTS - 3)]]),
+        np.array([[math.nan, -0.0, 1e-300, *range(width - 3)]]),
     )
     for original in (table, odd):
         path = tmp_path / "moments.csv"
@@ -98,6 +109,7 @@ def test_a_moment_table_survives_a_round_trip_exactly(
 
         copy = io.read_moment_table(path)
 
+        assert path.read_text().split("\n")[0] == ",".join(io.make_moment_header(width))
         assert copy.titles == original.titles
         assert copy.conformers == original.conformers
         np.testing.assert_array_equal(copy.moments, original.moments)
@@ -128,18 +140,36 @@ def test_an_empty_moments_csv_reads_as_an_empty_table() -> None:
     [
         (
             "",
-            "not a USR moments CSV: the header must be "
-            "Title,Conformer,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12, not empty",
+            "not a moments CSV: the header must be Title,Conformer,M1,...,Mn "
+            "for n a positive multiple of 12, not empty",
         ),
         (
             "Title,Conformer,Score\n",
-            "not a USR moments CSV: the header must be "
-            "Title,Conformer,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12, "
-            "not Title,Conformer,Score",
+            "not a moments CSV: the header must be Title,Conformer,M1,...,Mn "
+            "for n a positive multiple of 12, not Title,Conformer,Score",
+        ),
+        (
+            "Title,Conformer,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13\n",
+            "not a moments CSV: the header must be Title,Conformer,M1,...,Mn "
+            "for n a positive multiple of 12, not "
+            "Title,Conformer,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13",
+        ),
+        (
+            "Title,Conformer,M2,M1,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12\n",
+            "not a moments CSV: the header must be Title,Conformer,M1,...,Mn "
+            "for n a positive multiple of 12, not "
+            "Title,Conformer,M2,M1,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12",
         ),
         (
             "HEADER\nmol,0,1,2\n",
             "line 2 of the moments CSV has 4 fields, not 14",
+        ),
+        (
+            ",".join(io.make_moment_header(24))
+            + "\nmol,0,"
+            + ",".join("1" * 12)
+            + "\n",
+            "line 2 of the moments CSV has 14 fields, not 26",
         ),
         (
             "HEADER\nmol,first,1,2,3,4,5,6,7,8,9,10,11,12\n",
@@ -173,3 +203,24 @@ def test_hits_are_written_in_order_with_their_header(tmp_path: Path) -> None:
         "q,0,a,1,1.0",
         "q,0,b,0,0.25",
     ]
+
+
+def test_the_moment_header_names_every_moment() -> None:
+    assert io.make_moment_header(60)[-2:] == ("M59", "M60")
+    assert len(io.make_moment_header(36)) == 38
+
+
+@pytest.mark.parametrize("num_moments", [0, 11, 13, -12])
+def test_a_moment_header_of_another_number_is_refused(num_moments: int) -> None:
+    with pytest.raises(ValueError, match="a moments CSV holds") as caught:
+        io.make_moment_header(num_moments)
+
+    assert str(caught.value) == (
+        f"a moments CSV holds a positive multiple of 12 moments, not {num_moments}"
+    )
+
+
+def test_an_empty_usrcat_csv_reads_as_an_empty_table_of_sixty_moments() -> None:
+    header = ",".join(io.make_moment_header(60)) + "\n"
+
+    assert io.read_moment_table(stdio.StringIO(header)).moments.shape == (0, 60)

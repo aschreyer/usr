@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 [project]
 name = "rd-usr"
 dynamic = ["version"]
-description = "Ultrafast Shape Recognition (USR) moments and similarity search with RDKit."
+description = "Ultrafast Shape Recognition (USR and USRCAT) moments and similarity search with RDKit."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -19,6 +19,7 @@ keywords = [
     "molecular shape",
     "rdkit",
     "ultrafast shape recognition",
+    "usrcat",
     "virtual screening",
 ]
 classifiers = [
@@ -43,6 +44,7 @@ dependencies = [
 
 [project.scripts]
 usr = "usr.cli:app"
+usrcat = "usr.cli:usrcat_app"
 
 [project.urls]
 Repository = "https://github.com/aschreyer/usr"

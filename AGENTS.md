@@ -47,10 +47,34 @@ uvx pre-commit run --all-files
   the variance and the raw third central moment. The method's author confirmed
   that the population standard deviation and the cube root of the standardised
   skewness are intended; the code computes those. The README says so.
+- **USRCAT is additive.** It implements Schreyer and Blundell (2012),
+  doi:10.1186/1758-2946-4-27: 60 moments, five blocks of 12. Block 0 is the
+  USR moments of all atoms, computed by the same code as `calc_usr_moments`.
+  Blocks 1 to 4 are the hydrophobic, aromatic, acceptor and donor atoms of
+  `usr.chem.USRCAT_SMARTS`, acceptor before donor, with RDKit's SMARTS
+  verbatim. Each block takes the distances of its atoms to the four reference
+  points of all atoms. Do not change the SMARTS, their order or this layout.
+- **A USRCAT block without atoms is 12 zeros.** A block without spread (one
+  atom, or a variance at or below `(eps * mean) ** 2`) has its mean distances,
+  a standard deviation of 0 and a skewness of 0, not NaN, as RDKit has. Block 0
+  keeps USR's NaN.
+- **Atom typing lives in `usr.chem`**, geometry and moments in `usr.moments`,
+  which imports `chem`.
+- **Atom types ignore explicit hydrogens.** The SMARTS match the heavy-atom
+  graph (`Chem.RemoveHs`); with `explicit_h=True` the indices map back to the
+  molecule with its Hs, whose coordinates count. Matched on the graph with Hs,
+  the acceptor SMARTS types an acid's hydroxyl and an amide's nitrogen as
+  acceptors. `get_usrcat_moments` is not a wrapper of `GetUSRCAT`; tests check
+  it against `GetUSRCAT` and `GetUSRScore`.
+- **The USRCAT score is Eq. 1 of the paper:**
+  `1 / (1 + sum_k w_k * mean_k |M_i - M_j|)`, weights not normalised, 1 per
+  block by default. With one block of 12 and weight 1 it is the USR score.
 - **Moments match the reference to within floating-point tolerance.** Tests
   compare them with a tolerance (`pytest.approx` or `assert_allclose`), never
   bit for bit: a change of summation order or of cube-root library moves the
-  last bit.
+  last bit. The cube root of a skewness that is 0 in exact arithmetic, as for
+  two atoms, is near 5e-6, so a comparison with RDKit needs an absolute
+  tolerance.
 
 ## Code style
 
@@ -59,6 +83,9 @@ uvx pre-commit run --all-files
 - **Import by name when the name says what it is** (`from usr.search import
   screen`). **Import the module when it does not**: `from usr import io`,
   then `io.read_molecules`.
+- **Name functions, private helpers too, as verb phrases** that say what they
+  do and cannot be mistaken for a variable: `_calc_distances`, not
+  `_distances`.
 - Full type hints; mypy runs in strict mode. Use PEP 695 `type` aliases. Do not
   write `from __future__ import annotations`; ruff bans it.
 - **Public by default.** `usr/__init__.py` exports only `__version__`. A leading
@@ -100,9 +127,14 @@ import.
 
 - Results go to stdout, or to `--out`. Errors, warnings and logs go to stderr.
 - Exit codes: 0 for success, 1 for a fault, 2 for a caller's mistake.
+- Two applications share `cli.py`: `usr` (`app`, 12 moments) and `usrcat`
+  (`usrcat_app`, 60 moments), each with `generate` and `search`. Each search
+  refuses the other's database with exit 2 and names the other command.
 - A command parses options, calls the library and writes the result; logic
-  belongs in the library. Options both commands take are `Annotated`
+  belongs in the library. Options several commands take are `Annotated`
   assignments in `cli.py`, since Typer cannot read a `type` alias.
+- A moments CSV is `Title,Conformer,M1..Mn` for `n` a positive multiple of 12;
+  `read_moment_table` takes `n` from the header.
 
 ## Tests
 
@@ -127,8 +159,9 @@ import.
 ## Project structure
 
 ```
-src/usr/          # The package: moments, similarity, search, io
-src/usr/cli.py    # The `usr` command: generate and search
+src/usr/          # The package: chem, moments, similarity, search, io
+src/usr/chem.py   # USRCAT atom types: SMARTS and atom typing with RDKit
+src/usr/cli.py    # The `usr` and `usrcat` commands: generate and search
 tests/unit/       # Unit tests, mirroring src/usr/
 tests/data/       # SD files the tests read
 pyproject.toml    # Package, ruff, mypy, pytest and coverage configuration
