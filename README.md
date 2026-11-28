@@ -8,17 +8,20 @@
 [![Checked with mypy in strict mode](https://img.shields.io/badge/mypy-strict-2a6db2)](https://mypy-lang.org/)
 
 **USR** is a Python implementation of _Ultrafast Shape Recognition_
-(Ballester and Richards, 2007) on top of [RDKit](https://www.rdkit.org).
+(Ballester and Richards, 2007) and of **USRCAT**, USR with CREDO atom types
+(Schreyer and Blundell, 2012), on top of [RDKit](https://www.rdkit.org).
 USR describes the shape of a 3D conformer with 12 numbers and compares two
 shapes without aligning them, which keeps a screen of a large database
-cheap.
+cheap. USRCAT adds 48 numbers for where the conformer's hydrophobic,
+aromatic, hydrogen-bond acceptor and donor atoms lie.
 
-- **Describe shapes.** Calculate the 12 USR moments of every conformer in an
-  SD file or of any RDKit molecule.
-- **Search by shape.** Score a moments database against query molecules and
-  keep the best hits per query conformer.
-- **Use it from Python or the shell.** The `usr` command writes plain CSV, so
-  its output works with any tool that reads tables.
+- **Describe shapes.** Calculate the 12 USR moments or the 60 USRCAT moments
+  of every conformer in an SD file or of any RDKit molecule.
+- **Search by shape and pharmacophore.** Score a moments database against
+  query molecules, weigh the USRCAT atom types as you choose, and keep the
+  best hits per query conformer.
+- **Use it from Python or the shell.** The `usr` and `usrcat` commands write
+  plain CSV, so their output works with any tool that reads tables.
 
 ## How USR works
 
@@ -72,6 +75,33 @@ types and needs 3D coordinates; a 2D drawing gives the moments of a flat shape.
 > the population standard deviation and the cube root of the standardised
 > skewness, as above. This package computes those.
 
+## How USRCAT works
+
+USRCAT keeps the four reference points of all atoms, and describes four
+subsets of the atoms by their distances to them: the hydrophobic, aromatic,
+hydrogen-bond acceptor and hydrogen-bond donor atoms, in that order, as the
+SMARTS in `usr.chem.USRCAT_SMARTS` type them. These are RDKit's USRCAT
+definitions. Each subset gives 12 moments, as above, so a conformer has 60:
+`M1` to `M12` are the USR moments of all atoms, `M13` to `M24` the
+hydrophobic atoms, `M25` to `M36` the aromatic, `M37` to `M48` the acceptor
+and `M49` to `M60` the donor atoms.
+
+A subset without atoms has 12 moments of 0. A subset whose distances do not
+spread, as a single atom's, has its mean distances, a standard deviation of 0
+and a skewness of 0. The atom types are matched on the molecule without its
+explicit hydrogen atoms, also when their coordinates count.
+
+The similarity weighs the mean absolute difference of each block $b$ of 12
+moments:
+
+$$
+S_{qi} = \frac{1}{1 + \sum_{b=1}^{5} w_b \, \frac{1}{12}
+  \sum_{l=1}^{12} \left| M_{b,l}^q - M_{b,l}^i \right|} \in (0, 1],
+$$
+
+with $w_b \ge 0$, not all zero, and $w_b = 1$ by default. The weights are not
+normalised: weighing only the first block gives the USR score.
+
 ## Install
 
 USR supports Python 3.12 and later. The distribution is `rd-usr` and the
@@ -118,7 +148,28 @@ query and writes one row per hit, best first for each query conformer.
   `--explicit-h` to count them, to both commands alike.
 - A wrong input exits with code 2 and a one-line message.
 
-Run `usr --help` or `usr <command> --help` for every option.
+Run `usr --help`, `usrcat --help` or `<command> <subcommand> --help`, such as
+`usrcat search --help`, for every option.
+
+`usrcat` takes the same commands and options, and writes the 60 USRCAT
+moments. `usrcat search` also takes `-w/--weights`, one weight per block of 12
+moments, all atoms first, then hydrophobic, aromatic, acceptor and donor
+atoms:
+
+```bash
+usrcat generate tests/data/drugs-3d.sdf -o drugs-usrcat.csv
+usrcat search tests/data/drugs-3d.sdf drugs-usrcat.csv --top 2 --weights 1,0.25,0.25,1,1
+```
+
+```
+Query,QueryConformer,Title,Conformer,Score
+aspirin,0,aspirin,0,1.0
+aspirin,0,paracetamol,0,0.30767734137535324
+...
+```
+
+A USR database holds 12 moments and a USRCAT database 60. Each `search` refuses
+the other's database, with exit code 2 and the name of the command to use.
 
 ### From Python
 
@@ -148,10 +199,58 @@ diazepam     0.647
 paracetamol  0.616
 ```
 
+For USRCAT, build the tables with `get_usrcat_moment_table`. `screen` and
+`calc_usrcat_sim` take one weight per block of 12 moments; without weights,
+each block weighs 1. `get_usrcat_moments` takes custom `smarts`, or `subsets`
+of atom indices, for atom types of your own:
+
+```python
+from rdkit import Chem
+from rdkit.Chem import rdDistGeom
+
+from usr import io
+from usr.chem import get_pharmacophore_subsets
+from usr.moments import get_usrcat_moment_table, get_usrcat_moments
+from usr.search import screen
+from usr.similarity import calc_usrcat_sim
+
+
+database = get_usrcat_moment_table(io.read_molecules("tests/data/drugs-3d.sdf"))
+
+naproxen = Chem.AddHs(Chem.MolFromSmiles("COc1ccc2cc(ccc2c1)[C@H](C)C(=O)O"))
+naproxen.SetProp("_Name", "naproxen")
+rdDistGeom.EmbedMultipleConfs(naproxen, numConfs=1, randomSeed=42)
+query = get_usrcat_moment_table([naproxen])
+
+# One weight per block: all atoms, hydrophobic, aromatic, acceptor, donor.
+weights = [1.0, 0.25, 0.25, 1.0, 1.0]
+for hit in screen(query, database, top=3, weights=weights):
+    print(f"{hit.title:<12} {hit.score:.3f}")
+
+# The same scores, unsorted: one query conformer against every database row.
+print(calc_usrcat_sim(query.moments[0], database.moments, weights=weights).round(3))
+
+# The atoms of each type, indexed as Chem.RemoveHs(naproxen) numbers them.
+print(get_pharmacophore_subsets(naproxen))
+
+# Custom types: one block of 12 moments per SMARTS, after the all-atom block.
+print(get_usrcat_moments(naproxen, smarts=["[#7,#8]", "[a]"]).shape)
+```
+
+```
+ibuprofen    0.277
+paracetamol  0.212
+nicotine     0.201
+[0.197 0.178 0.277 0.212 0.201 0.198]
+((3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), (2, 3, 4, 5, 6, 7, 8, 9, 10, 11), (1, 15), (16,))
+(1, 36)
+```
+
 | Module | Holds |
 |---|---|
-| `usr.moments` | `get_usr_moments` for one molecule, `get_usr_moment_table` for many, `calc_usr_moments` for a `(conformers, atoms, 3)` coordinate array |
-| `usr.similarity` | `calc_usr_sim` for one set of moments against many |
+| `usr.moments` | `get_usr_moments` and `get_usrcat_moments` for one molecule, `get_usr_moment_table` and `get_usrcat_moment_table` for many, `calc_usr_moments` and `calc_usrcat_moments` for a `(conformers, atoms, 3)` coordinate array |
+| `usr.chem` | `USRCAT_SMARTS`, `get_pharmacophore_subsets` for the USRCAT atom types of a molecule, and `compile_smarts`, which checks and caches SMARTS |
+| `usr.similarity` | `calc_usr_sim` and the weighted `calc_usrcat_sim` for one set of moments against many |
 | `usr.search` | `screen`, which yields `Hit` records best first |
 | `usr.io` | `read_molecules` for SD files; `read_moment_table`, `write_moment_table` and `write_hits` for CSV |
 
@@ -177,6 +276,25 @@ If you use USR in published work, please cite the original method:
   pages   = {1711--1723},
   year    = {2007},
   doi     = {10.1002/jcc.20681},
+}
+```
+
+If you use USRCAT, please also cite:
+
+> Schreyer, A. M. and Blundell, T. (2012). USRCAT: real-time ultrafast shape
+> recognition with pharmacophoric constraints. _J. Cheminform._, 4: 27.
+> [doi:10.1186/1758-2946-4-27](https://doi.org/10.1186/1758-2946-4-27)
+
+```bibtex
+@article{schreyer2012usrcat,
+  author  = {Schreyer, Adrian M. and Blundell, Tom},
+  title   = {{USRCAT}: real-time ultrafast shape recognition with
+             pharmacophoric constraints},
+  journal = {Journal of Cheminformatics},
+  volume  = {4},
+  pages   = {27},
+  year    = {2012},
+  doi     = {10.1186/1758-2946-4-27},
 }
 ```
 

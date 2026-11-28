@@ -1,9 +1,11 @@
-"""Reading molecules, and reading and writing USR moments and search results.
+"""Reading molecules, and reading and writing USR or USRCAT moments and search results.
 
 :func:`read_molecules` reads an SD file, plain or gzipped, and skips the records RDKit
 cannot read. :func:`write_moment_table` and :func:`read_moment_table` store a
-:class:`~usr.moments.MomentTable` as CSV with the columns of :data:`MOMENT_HEADER`,
-which is the database format of ``usr generate`` and ``usr search``.
+:class:`~usr.moments.MomentTable` as CSV with the columns of :func:`make_moment_header`:
+:data:`MOMENT_HEADER` for USR moments, and ``M1`` to ``M60`` for USRCAT moments. That
+is the database format of the ``generate`` and ``search`` commands of ``usr`` and
+``usrcat``.
 :func:`write_hits` writes the scores of :func:`usr.search.screen` as CSV.
 
 A :data:`Stream` is a path, or an open text stream such as ``sys.stdout``, which is
@@ -21,15 +23,48 @@ import numpy as np
 from loguru import logger
 from rdkit import Chem
 
-from usr.moments import MOMENT_COLUMNS, NUM_MOMENTS, MomentTable
+from usr.moments import NUM_MOMENTS, MomentTable
 from usr.search import Hit
 
 
 type Stream = Path | str | TextIO
 """A path, which the function opens and closes, or an open text stream, left open."""
 
-MOMENT_HEADER = ("Title", "Conformer", *MOMENT_COLUMNS)
-"""The header of a moments CSV: the molecule, the conformer id and the moments."""
+
+def make_moment_header(num_moments: int) -> tuple[str, ...]:
+    """Return the header of a moments CSV: the molecule, the conformer id and moments.
+
+    Parameters
+    ----------
+    num_moments : int
+        The moments per row, a positive multiple of 12.
+
+    Returns
+    -------
+    tuple[str, ...]
+        ``Title``, ``Conformer`` and ``M1`` to ``M<num_moments>``.
+
+    Raises
+    ------
+    ValueError
+        If ``num_moments`` is not a positive multiple of 12.
+
+    Examples
+    --------
+    >>> make_moment_header(24)[:4], make_moment_header(24)[-1]
+    (('Title', 'Conformer', 'M1', 'M2'), 'M24')
+    """
+    if num_moments < NUM_MOMENTS or num_moments % NUM_MOMENTS:
+        raise ValueError(
+            f"a moments CSV holds a positive multiple of {NUM_MOMENTS} moments, "
+            f"not {num_moments}"
+        )
+
+    return ("Title", "Conformer", *(f"M{n}" for n in range(1, num_moments + 1)))
+
+
+MOMENT_HEADER = make_moment_header(NUM_MOMENTS)
+"""The header of a USR moments CSV: ``Title``, ``Conformer`` and ``M1`` to ``M12``."""
 
 HIT_HEADER = ("Query", "QueryConformer", "Title", "Conformer", "Score")
 """The header of a search result CSV: the query row, the database row and the score."""
@@ -102,8 +137,9 @@ def _open_text(
 def write_moment_table(table: MomentTable, target: Stream) -> None:
     """Write a moment table as CSV, one row per conformer.
 
-    The columns are :data:`MOMENT_HEADER`. Each moment is written with the digits
-    that recover it exactly, and an undefined moment as ``nan``.
+    The columns are :func:`make_moment_header` of the table's number of moments. Each
+    moment is written with the digits that recover it exactly, and an undefined moment
+    as ``nan``.
 
     Parameters
     ----------
@@ -114,12 +150,12 @@ def write_moment_table(table: MomentTable, target: Stream) -> None:
     """
     with _open_text(target, "w") as stream:
         writer = csv.writer(stream, lineterminator="\n")
-        writer.writerow(MOMENT_HEADER)
+        writer.writerow(make_moment_header(table.moments.shape[1]))
         for title, conformer, moments in zip(
             table.titles, table.conformers, table.moments.tolist(), strict=True
         ):
             writer.writerow([title, conformer, *moments])
-    logger.info("wrote {} rows of USR moments", len(table))
+    logger.info("wrote {} rows of moments", len(table))
 
 
 def read_moment_table(source: Stream) -> MomentTable:
@@ -133,31 +169,37 @@ def read_moment_table(source: Stream) -> MomentTable:
     Returns
     -------
     MomentTable
-        One row per CSV row after the header.
+        One row per CSV row after the header, with as many moments as the header names.
 
     Raises
     ------
     ValueError
-        If the header is not :data:`MOMENT_HEADER`, or a row has the wrong number of
-        fields, a conformer id that is not an integer or a moment that is not a number.
-        The message names the line.
+        If the header is not :func:`make_moment_header` of a positive multiple of 12,
+        or a row has the wrong number of fields, a conformer id that is not an integer
+        or a moment that is not a number. The message names the line.
     """
     with _open_text(source, "r") as stream:
         reader = csv.reader(stream)
         header = tuple(next(reader, ()))
-        if header != MOMENT_HEADER:
+        num_moments = len(header) - 2
+        if (
+            num_moments < NUM_MOMENTS
+            or num_moments % NUM_MOMENTS
+            or header != make_moment_header(num_moments)
+        ):
             raise ValueError(
-                f"not a USR moments CSV: the header must be {','.join(MOMENT_HEADER)}, "
-                f"not {','.join(header) or 'empty'}"
+                f"not a moments CSV: the header must be Title,Conformer,M1,...,Mn "
+                f"for n a positive multiple of {NUM_MOMENTS}, not "
+                f"{','.join(header) or 'empty'}"
             )
         titles: list[str] = []
         conformers: list[int] = []
         rows: list[list[float]] = []
         for row in reader:
-            if len(row) != len(MOMENT_HEADER):
+            if len(row) != len(header):
                 raise ValueError(
                     f"line {reader.line_num} of the moments CSV has {len(row)} fields, "
-                    f"not {len(MOMENT_HEADER)}"
+                    f"not {len(header)}"
                 )
             try:
                 conformers.append(int(row[1]))
@@ -165,11 +207,11 @@ def read_moment_table(source: Stream) -> MomentTable:
             except ValueError as error:
                 raise ValueError(
                     f"line {reader.line_num} of the moments CSV is not a title, an "
-                    f"integer conformer id and {NUM_MOMENTS} numbers: {error}"
+                    f"integer conformer id and {num_moments} numbers: {error}"
                 ) from None
             titles.append(row[0])
 
-    moments = np.array(rows, dtype=np.float64).reshape(len(rows), NUM_MOMENTS)
+    moments = np.array(rows, dtype=np.float64).reshape(len(rows), num_moments)
 
     return MomentTable(tuple(titles), tuple(conformers), moments)
 

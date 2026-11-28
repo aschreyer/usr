@@ -1,16 +1,18 @@
 cff-version: 1.2.0
 message: >-
   If you use this software, please cite the method it implements, given under
-  preferred-citation.
+  preferred-citation, and for USRCAT the article under references.
 type: software
 title: "USR: Ultrafast Shape Recognition"
 abstract: >-
-  A Python implementation of Ultrafast Shape Recognition (USR) on top of RDKit.
-  USR describes the shape of a 3D conformer with 12 moments of its atomic
-  distance distributions and compares shapes without aligning them. The
-  package calculates USR moments from SD files or RDKit molecules and screens
-  a database of moments against query molecules, from Python or the `usr`
-  command line.
+  A Python implementation of Ultrafast Shape Recognition (USR) and of USRCAT,
+  USR with CREDO atom types, on top of RDKit. USR describes the shape of a 3D
+  conformer with 12 moments of its atomic distance distributions and compares
+  shapes without aligning them; USRCAT adds 48 moments of its hydrophobic,
+  aromatic, hydrogen-bond acceptor and donor atoms. The package calculates the
+  moments from SD files or RDKit molecules and screens a database of moments
+  against query molecules, from Python or the `usr` and `usrcat` command
+  lines.
 authors:
   - family-names: Schreyer
     given-names: Adrian
@@ -22,6 +24,7 @@ keywords:
   - molecular shape
   - rdkit
   - ultrafast shape recognition
+  - usrcat
   - virtual screening
 preferred-citation:
   type: article
@@ -38,3 +41,16 @@ preferred-citation:
   end: 1723
   year: 2007
   doi: 10.1002/jcc.20681
+references:
+  - type: article
+    title: "USRCAT: real-time ultrafast shape recognition with pharmacophoric constraints"
+    authors:
+      - family-names: Schreyer
+        given-names: Adrian M.
+      - family-names: Blundell
+        given-names: Tom
+    journal: Journal of Cheminformatics
+    volume: 4
+    start: 27
+    year: 2012
+    doi: 10.1186/1758-2946-4-27

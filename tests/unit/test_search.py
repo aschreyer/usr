@@ -76,3 +76,48 @@ def test_a_top_below_one_is_refused_before_scoring() -> None:
         screen(table_of(0.0), table_of(0.0), top=0)
 
     assert str(caught.value) == "top must be at least 1, not 0"
+
+
+def make_usrcat_table(*rows: list[float]) -> MomentTable:
+    """Return a table with one row per list of five values, each repeated 12 times."""
+    return MomentTable(
+        tuple(f"mol-{number}" for number in range(len(rows))),
+        tuple(range(len(rows))),
+        np.array([np.repeat(row, NUM_MOMENTS) for row in rows]).reshape(-1, 60),
+    )
+
+
+def test_weights_decide_which_usrcat_block_counts() -> None:
+    """Derived by hand: against 0, the rows score 1/3 and 1/6, or 1/3 and 1/2.
+
+    Row 0 differs by 2 in the first block only and row 1 by 1 in every block. Equal
+    weights score them 1/3 and 1/6; weighing only the
+    first block, 1/3 and 1/2.
+    """
+    query = make_usrcat_table([0.0] * 5)
+    database = make_usrcat_table([2.0, 0, 0, 0, 0], [1.0] * 5)
+
+    equal = list(screen(query, database))
+    shape_only = list(screen(query, database, weights=[1.0, 0, 0, 0, 0]))
+
+    assert [(hit.conformer, hit.score) for hit in equal] == [(0, 1 / 3), (1, 1 / 6)]
+    assert [(hit.conformer, hit.score) for hit in shape_only] == [(1, 0.5), (0, 1 / 3)]
+
+
+def test_query_and_database_of_different_descriptors_are_refused() -> None:
+    with pytest.raises(ValueError, match="the query has") as caught:
+        screen(table_of(0.0), make_usrcat_table([0.0] * 5))
+
+    assert str(caught.value) == (
+        "the query has 12 moments per row and the database 60: both must hold the "
+        "same descriptor"
+    )
+
+
+def test_invalid_weights_are_refused_before_scoring() -> None:
+    with pytest.raises(ValueError, match="weights must") as caught:
+        screen(make_usrcat_table([0.0] * 5), make_usrcat_table(), weights=[1.0])
+
+    assert str(caught.value) == (
+        "weights must hold one weight per block of 12 moments, 5 in all, not 1"
+    )
